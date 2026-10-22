@@ -13,13 +13,13 @@ git init && git add -A && git commit -m "feat: 从模板初始化"
 
 **复制完先改这几处**，然后才能写代码：
 
-| 改什么 | 改成 |
-|---|---|
-| `game.json` 的 `id` | `你的名字.游戏名`，只能小写字母、数字、连字符 |
-| `game.json` 的 `name` / `summary` | 游戏名与一句话介绍 |
-| `src/main.ts` 的 `defineGame({ id })` | **必须与 `game.json` 的 id 一模一样** |
-| `package.json` 的 `name` | 包名，如 `my-game` |
-| `AGENTS.md` | 通读一遍，把内容改成你游戏的实际情况 |
+| 改什么                                | 改成                                          |
+| ------------------------------------- | --------------------------------------------- |
+| `game.json` 的 `id`                   | `你的名字.游戏名`，只能小写字母、数字、连字符 |
+| `game.json` 的 `name` / `summary`     | 游戏名与一句话介绍                            |
+| `src/main.ts` 的 `defineGame({ id })` | **必须与 `game.json` 的 id 一模一样**         |
+| `package.json` 的 `name`              | 包名，如 `my-game`                            |
+| `AGENTS.md`                           | 通读一遍，把内容改成你游戏的实际情况          |
 
 `AGENTS.md` 里没有占位符——它用模板自带的小游戏作为样例填好了。
 照着改成你自己的，比从空白写快，也不会漏掉必须写的东西。
