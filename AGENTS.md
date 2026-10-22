@@ -33,6 +33,8 @@ hearthbox/
   fixtures/
     contract/         # 最小契约夹具：移动、变色、存档。只给平台 CI，不是游戏
     inputs/           # 输入夹具：鼠标点选、滚轮、键盘、金手指演示
+  templates/
+    game/             # 新游戏模板：可跑通的完整链路 + 四份流程文档
   tools/
     hbx/              # CLI：create / dev / pack / sign / publish（M2 才创建）
   scripts/            # dev-server.mjs、link-fixtures.mjs
@@ -78,9 +80,27 @@ hearthbox-projects/
 
 开发时 `pnpm dev` 会自动扫描工作区根下的所有含 `game.json` 且已 build 的目录，挂到货架上。游戏文件不复制进平台仓库，也不改平台源码。
 
+**新游戏从 `templates/game/` 复制，不要从零写。** 模板里有一份能跑通的完整链路（输入→移动→碰撞→状态→存档→重开）和四份流程文档。
+
 M2 之后有 `hbx create` 生成标准仓库、`hbx dev` 起独立开发服务器，那时不必放在同一父目录下。
 
 新增游戏的完整步骤见 `docs/local-dev.md`。
+
+### 做一款游戏的流程
+
+不是先写代码，而是按这个顺序（详见技能 `hearthbox-game-design`）：
+
+| 步 | 产出 | 判断标准 |
+|---|---|---|
+| 1 | 玩法一页纸（`docs/pitch.md`） | 核心动词只有一个，能填完八个字段 |
+| 2 | 美术规范（`docs/art.md`） | 分辨率、色板 hex、网格全部写死 |
+| 3 | 系统表（`docs/systems.md`） | 每行都能填进具体数字 |
+| 4 | 垂直切片 | 10 分钟能玩完，每轮改动都能玩 |
+| 5 | 验收（`docs/acceptance.md`） | 真跑起来并截图，`typecheck` 通过不算 |
+
+**最容易返工的两处**：美术规范最后才定（所有素材重画）、数值散落在代码里（改一个数翻五个文件）。
+
+文档只要这四份。实测数据显示 30 份设计文档的版本在盲评里排最后 —— 多出来的是可追溯性，不是更好的游戏。
 
 货架内容（`catalog.json`、签名、`.hbx`）是发布产物，放对象存储，不进任何仓库。签名私钥只留在发布机器上。
 
