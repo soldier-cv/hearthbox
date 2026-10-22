@@ -1,0 +1,194 @@
+:root {
+  --bg: #0b0b0f;
+  --fg: #f2f2f5;
+  --muted: #9a9aa8;
+  --card: #17171f;
+  --accent: #f5a524;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Noto Sans SC',
+    sans-serif;
+  /* 10-foot：1080p 基准下正文不小于 24px */
+  font-size: 24px;
+}
+
+body.play {
+  overflow: hidden;
+}
+
+.shelf {
+  min-height: 100vh;
+  /* 5% 安全区，避免过扫描裁切 */
+  padding: 5vmin;
+}
+
+.shelf h1 {
+  margin: 0 0 0.3em;
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+}
+
+.shelf .subtitle {
+  color: var(--muted);
+  margin: 0 0 2rem;
+  font-size: 0.9rem;
+}
+
+.game-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.game-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 3px solid transparent;
+}
+
+.game-card[data-focused='true'] {
+  border-color: var(--accent);
+  transform: scale(1.02);
+}
+
+.game-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.game-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+button {
+  font: inherit;
+  font-size: 1rem;
+  color: var(--fg);
+  background: var(--accent);
+  color: #101014;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.6rem 1.6rem;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 4px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.empty {
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.empty code {
+  color: var(--fg);
+  background: #000;
+  padding: 0.1em 0.4em;
+  border-radius: 6px;
+}
+
+#stage {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.crash {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 10, 0.96);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 10vmin;
+}
+
+/* hidden 必须真的不可见：display:flex 会覆盖 [hidden] 的默认样式。 */
+.crash[hidden],
+.gate[hidden] {
+  display: none;
+}
+
+.crash pre {
+  max-width: 80vw;
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.gate {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.pads-page {
+  padding: 2rem;
+}
+
+.pads-page h1 {
+  font-size: 1.4rem;
+}
+
+.pads-page .hint {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  max-width: 60ch;
+}
+
+.pad {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.7rem;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+}
+
+.pad .axes,
+.pad .buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.2rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.pad .value {
+  color: var(--accent);
+}

@@ -1,34 +1,19 @@
 node_modules/
 dist/
-build/
-out/
+coverage/
 .vite/
-*.log
-.DS_Store
-Thumbs.db
-
-# 环境与密钥
+*.local
 .env
 .env.*
-!.env.example
-*.keystore
-*.jks
-*.p12
-signing-key.json
-
-# Capacitor / Android
+!*.example
 native/android/app/build/
 native/android/.gradle/
 native/android/local.properties
-native/android/captures/
-*.apk
-*.aab
+*.keystore
+*.jks
+/tmp/
+test-results/
+playwright-report/
 
-# 本地调试配置（含局域网 server.url）
-*.local.json
-
-# 编辑器
-.idea/
-*.iml
-.vscode/*
-!.vscode/extensions.json
+# 夹具产物：由 pnpm dev / pnpm fixtures 生成
+apps/shell/public/fixtures/contract/

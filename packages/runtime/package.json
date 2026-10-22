@@ -1,0 +1,31 @@
+{
+  "name": "@hearthbox/runtime",
+  "version": "0.1.0",
+  "description": "Hearthbox 运行时：主循环、输入、显示、音频、存储、会话",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./bridge": {
+      "types": "./dist/bridge.d.ts",
+      "default": "./dist/bridge.js"
+    },
+    "./web-bridge": {
+      "types": "./dist/web-bridge.d.ts",
+      "default": "./dist/web-bridge.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hearthbox/sdk": "workspace:*"
+  }
+}

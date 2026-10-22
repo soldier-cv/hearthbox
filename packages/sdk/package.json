@@ -1,0 +1,23 @@
+{
+  "name": "@hearthbox/sdk",
+  "version": "0.1.0",
+  "description": "Hearthbox 游戏契约：只有类型与 defineGame()，零运行时依赖",
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

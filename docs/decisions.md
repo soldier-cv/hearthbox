@@ -89,3 +89,17 @@
 
 - **结论**：项目名 Hearthbox（中文名"炉边"），包名前缀 `@hearthbox/*`，CLI 名 `hbx`，包扩展名 `.hbx`。平台代码 MIT；游戏在 `game.json` 中各自声明许可。
 - **理由**：撰写本文时，npm 上 `hearthbox` 包名与 GitHub 上 `hearthbox` 用户/组织名均未被占用（2026-10 查询）；`hearth` 已被占用。建议尽早注册 GitHub 组织与 npm scope。
+
+## D15 画布归平台：游戏拿到的是 2D 上下文
+
+- **结论**：`Display` 在 `attach` 时调用 `getContext('2d')`，完成整数/等比缩放、DPR 与 `imageSmoothingEnabled`。游戏从 `GameContext` 拿到的是 `CanvasRenderingContext2D`（字段名 `ctx2d`），不是可以自己再取上下文的 `HTMLCanvasElement`。WebGL 以后作为可选字段加上，不改 2D 签名，也不在 M1 提供。
+- **备选**：把 `HTMLCanvasElement` 交给游戏自己取上下文（2D 与 WebGL 互斥，先取的人锁死画布，平台的 `scale()` 与平滑开关对 WebGL 无效）；Worker + OffscreenCanvas（输入、存档、资源都要跨线程拷贝，Android TV WebView 无实测，且与 D6、D7 冲突）。
+- **理由**：M1 的契约夹具只画一个方块，2D 足够。像素游戏的整数缩放和最近邻必须由平台保证，不能靠约定。渲染引擎（如 PixiJS）仍由游戏自己依赖并打包，不进平台。
+- **取代关系**：不推翻 D1。D1 允许 WebGL 作为游戏侧技术；本条只固定平台交给游戏的第一个上下文是 2D。`docs/game-sdk.md` 的 `GameContext` 已按本条改为 `ctx2d`。
+
+## D16 游戏包必须自包含：SDK 内联，零裸导入
+
+- **结论**：`game.js` 里不允许出现任何 `import` 语句，`@hearthbox/sdk` 也要内联进产物。`hbx pack` 与安装器都拒绝含裸导入的包。
+- **背景**：包入口通过 blob URL `import()` 执行（D5）。blob URL 的模块没有包解析上下文，裸说明符直接抛 `Failed to resolve module specifier`。唯一能补的是 import maps，但它需要 Chromium 89+，而基线是 87（D9）。
+- **代价**：SDK 会被复制进每个包。SDK 只有类型和一个恒等函数，实测内联后夹具包 1.68 kB，可以忽略。
+- **取代关系**：修正 `docs/game-sdk.md` 原先"SDK 作为 external 由宿主提供"的说法。那条在 blob URL 方案下不成立。

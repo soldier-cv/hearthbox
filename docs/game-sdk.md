@@ -26,7 +26,7 @@ export default defineGame({
 
 - 游戏**不得**调用 `requestAnimationFrame`、`setTimeout` 驱动逻辑、或读取 `navigator.getGamepads()`。
 - 游戏**不得**依赖任何全局对象（`window`、`document` 之外的平台内部对象）。`ctx` 是唯一的平台接口。
-- 构建时 SDK 作为外部依赖（`external`），由平台宿主页提供，不打进游戏包。
+- 构建时 SDK **必须内联**进 `game.js`，产物里不允许出现任何裸导入（包括 `@hearthbox/sdk`）。原因：包入口在 blob URL 下执行，裸说明符无法解析，而 import maps 需要 Chromium 89+，基线是 87。SDK 只有类型和一个恒等函数，内联后不增加体积。
 
 ## 2. 生命周期
 
@@ -52,8 +52,8 @@ create(ctx) ──► update(dt) × N ──► render(alpha) × M ──► dis
 
 ```ts
 interface GameContext {
-  readonly canvas: HTMLCanvasElement;   // 已按逻辑分辨率设置好 backing store
-  readonly width: number;               // 逻辑像素宽，等于 game.json 声明值
+  readonly ctx2d: CanvasRenderingContext2D; // 平台已取好的 2D 上下文，见 decisions.md D15
+  readonly width: number;                   // 逻辑像素宽，等于 game.json 声明值
   readonly height: number;
   readonly input: InputView;            // 见 input.md
   readonly assets: AssetLoader;

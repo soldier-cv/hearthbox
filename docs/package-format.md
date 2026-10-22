@@ -18,7 +18,7 @@ neon-drift-1.2.0.hbx
 
 - 解压后总大小 ≤ 200MB；压缩包内文件数 ≤ 4000。超过的游戏需要等 `PackageStore` 的文件系统后端（见 decisions.md D5）。
 - 路径只允许相对路径，拒绝 `..`、绝对路径、符号链接条目。
-- `game.js` 不得包含 import maps 或相对路径的 `import`；除 `@hearthbox/sdk` 外的依赖全部由构建工具内联。
+- `game.js` 不得包含 import maps 或任何 `import` 语句（裸导入、相对导入都不行）；包括 `@hearthbox/sdk` 在内的依赖全部由构建工具内联。包入口在 blob URL 下执行，裸说明符无法解析。
 - 媒体文件只允许：png、jpg、webp、gif、json、txt、ogg、mp3、wav。
 
 ## 2. catalog.json

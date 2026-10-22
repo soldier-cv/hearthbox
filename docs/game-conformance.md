@@ -37,7 +37,7 @@ hbx create neon-drift
 
 | 检查 | 挡住什么 |
 |---|---|
-| 入口是单个 ESM，除 `@hearthbox/sdk` 外无裸导入、无相对 `import` | 多文件模块、漏打包的依赖 |
+| 入口是单个 ESM，**零裸导入、零相对 `import`**（`@hearthbox/sdk` 也必须内联） | 多文件模块、漏打包的依赖、blob URL 下解析不了的说明符 |
 | 产物里不含禁用 API（`requestAnimationFrame` 驱动逻辑、`getGamepads`、`structuredClone`、`crypto.subtle` 等，清单同 compatibility.md） | 绕过类型直接调平台不支持的接口 |
 | `game.json` 的 `id`、`version`、`sdk` 范围合法，且与构建所用 SDK 版本相符 | 清单与代码不一致 |
 | 解压后体积 ≤ 200MB、文件数 ≤ 4000、路径无 `..`、无符号链接 | 破坏安装器假设的包 |

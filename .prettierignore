@@ -1,0 +1,8 @@
+# Prettier 不处理文档：它会按显示宽度重排中文表格，把对齐改成
+# "看起来整齐但中文列全歪"的样子，还会产生大量与内容无关的 diff。
+docs/
+
+# 构建产物与夹具同步出去的副本
+**/dist/
+apps/shell/public/fixtures/
+pnpm-lock.yaml

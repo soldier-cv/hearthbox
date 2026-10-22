@@ -11,24 +11,36 @@ Hearthbox 是一个**手柄优先**的自制游戏平台：一个"主机壳" + �
 
 ## 状态
 
-设计阶段（M0 之前）。代码尚未开始，见 [docs/roadmap.md](docs/roadmap.md)。
+M1（运行时内核 + SDK v0）已完成：契约夹具能在 PC 浏览器里用手柄或键盘操作，存档刷新后保留。
+M0 的真机实测与 M2 之后的里程碑见 [docs/roadmap.md](docs/roadmap.md)。
+
+```bash
+pnpm install
+pnpm dev        # 启动货架，打开 http://127.0.0.1:5199
+pnpm test       # 单元测试
+pnpm lint       # ESLint + Prettier
+pnpm typecheck  # 全包类型检查
+```
+
+`pnpm dev` 会先构建契约夹具再起 Vite。打开页面后按 Enter 或手柄键开始。
+手柄的实际上报值可在 `/pads.html` 查看，用于填写 `docs/m0-findings.md`。
 
 ## 文档
 
-| 文档 | 内容 |
-|---|---|
-| [architecture.md](docs/architecture.md) | 总体架构、分层、模块边界、数据流 |
-| [decisions.md](docs/decisions.md) | 架构决策记录（为什么这样选） |
-| [input.md](docs/input.md) | 手柄输入管线、Android 原生桥、映射 |
-| [game-sdk.md](docs/game-sdk.md) | 游戏开发契约：生命周期、ctx API |
-| [package-format.md](docs/package-format.md) | 游戏包、catalog、签名、安装流程 |
-| [deployment.md](docs/deployment.md) | 开发环境、ZeroTier、公网 HTTPS 部署 |
-| [compatibility.md](docs/compatibility.md) | 兼容基线、性能预算、设备矩阵 |
-| [roadmap.md](docs/roadmap.md) | 里程碑与验收标准 |
-| [game-conformance.md](docs/game-conformance.md) | 游戏仓库如何被工具链约束住 |
-| [runtime-api.md](docs/runtime-api.md) | 运行时各模块的接口签名 |
-| [repository.md](docs/repository.md) | 仓库布局、依赖方向、工具链版本 |
-| [bootstrap.md](docs/bootstrap.md) | 首次初始化的任务范围与提交标准 |
+| 文档                                            | 内容                                |
+| ----------------------------------------------- | ----------------------------------- |
+| [architecture.md](docs/architecture.md)         | 总体架构、分层、模块边界、数据流    |
+| [decisions.md](docs/decisions.md)               | 架构决策记录（为什么这样选）        |
+| [input.md](docs/input.md)                       | 手柄输入管线、Android 原生桥、映射  |
+| [game-sdk.md](docs/game-sdk.md)                 | 游戏开发契约：生命周期、ctx API     |
+| [package-format.md](docs/package-format.md)     | 游戏包、catalog、签名、安装流程     |
+| [deployment.md](docs/deployment.md)             | 开发环境、ZeroTier、公网 HTTPS 部署 |
+| [compatibility.md](docs/compatibility.md)       | 兼容基线、性能预算、设备矩阵        |
+| [roadmap.md](docs/roadmap.md)                   | 里程碑与验收标准                    |
+| [game-conformance.md](docs/game-conformance.md) | 游戏仓库如何被工具链约束住          |
+| [runtime-api.md](docs/runtime-api.md)           | 运行时各模块的接口签名              |
+| [repository.md](docs/repository.md)             | 仓库布局、依赖方向、工具链版本      |
+| [bootstrap.md](docs/bootstrap.md)               | 首次初始化的任务范围与提交标准      |
 
 ## 目录规划
 

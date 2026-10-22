@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hearthbox · 游戏</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="play">
+    <div id="stage"></div>
+    <div id="crash" class="crash" hidden>
+      <h1>游戏崩溃了</h1>
+      <pre id="crash-message"></pre>
+      <button id="back" type="button">返回货架</button>
+    </div>
+    <div id="gate" class="gate">
+      <p>按任意键或手柄键开始</p>
+    </div>
+    <script type="module" src="/src/play.ts"></script>
+  </body>
+</html>

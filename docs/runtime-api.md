@@ -103,7 +103,7 @@ interface Display {
 }
 ```
 
-- `canvas.width` / `canvas.height` 设为逻辑分辨率乘以整数倍后再考虑 DPR，但传给游戏的坐标系永远是逻辑分辨率。实现时在 `CanvasRenderingContext2D` 上 `scale`，游戏不感知。
+- `canvas.width` / `canvas.height` 设为逻辑分辨率乘以整数倍后再考虑 DPR，但传给游戏的坐标系永远是逻辑分辨率。`attach` 时取得唯一的 `CanvasRenderingContext2D` 并 `scale`，游戏不感知，也不再自己取上下文（decisions.md D15）。
 - `integer`：取不超过容器的最大整数倍，居中，余量留黑。
 - `fit`：等比缩放取较小的一边铺满。
 - `pixelArt` 为真时 `imageSmoothingEnabled = false`。

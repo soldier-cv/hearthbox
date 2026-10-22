@@ -69,20 +69,38 @@ native/android ──► 通过 HostBridge 与 apps/shell 交互，不直接依�
 
 具体版本在初始化时取当时的最新稳定版并**精确锁定**，不写 `^`。选择范围：
 
-| 工具 | 要求 |
-|---|---|
-| Node | 当前 LTS，用 `.node-version` 固定 |
-| pnpm | 最新稳定版，写入 `packageManager` 字段 |
-| TypeScript | 最新稳定版，`strict` 全开 |
-| Vite | 最新稳定版 |
-| Vitest | 与 Vite 同代 |
-| Preact | 最新稳定版 |
-| ESLint | 扁平配置，配 `typescript-eslint`、`eslint-plugin-compat` |
-| Prettier | 最新稳定版 |
+| 工具        | 要求                                                                   |
+| ----------- | ---------------------------------------------------------------------- |
+| Node        | 当前 LTS，用 `.node-version` 固定                                      |
+| pnpm        | 最新稳定版，写入 `packageManager` 字段                                 |
+| TypeScript  | 最新稳定版，`strict` 全开                                              |
+| Vite        | 最新稳定版                                                             |
+| Vitest      | 与 Vite 同代                                                           |
+| Preact      | 最新稳定版                                                             |
+| ESLint      | 扁平配置，配 `typescript-eslint`、`eslint-plugin-compat`               |
+| Prettier    | 最新稳定版                                                             |
 
 `eslint-plugin-compat` 的 browserslist 目标是 `chrome >= 87`，与 `docs/compatibility.md` 一致。
 
 初始化时把实际选定的版本号回写到本表，避免后来者猜。
+
+**2026-10 实际锁定的版本**（`pnpm-lock.yaml` 为准）：
+
+| 工具                 | 版本   |
+| -------------------- | ------ |
+| Node                 | 24.19.0（`.node-version` 写 `22`，>=22 均可） |
+| pnpm                 | 9.15.0 |
+| TypeScript           | 5.9.3  |
+| Vite                 | 6.4.5  |
+| Vitest               | 2.1.9  |
+| Preact               | 10.29.8 |
+| ESLint / typescript-eslint | 9.39.5 / 8.72.0 |
+| eslint-plugin-compat | 6.2.1  |
+| Prettier             | 3.9.10 |
+| Playwright           | 1.64.1 |
+| fake-indexeddb       | 6.2.6  |
+
+未引入 `idb`：`packages/runtime/src/storage.ts` 自己封装了需要的那几个方法，符合第 6 节"能用 50 行自己写完的不引入"。`fflate` 与 `@noble/*` 属于 M2，届时再加。
 
 ## 5. 代码风格
 
