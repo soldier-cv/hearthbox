@@ -114,6 +114,14 @@ export default defineGame({
           persist();
         }
 
+        // 用平台随机数（可复现）而不是 Math.random：同一 debug.seed 下
+        // 按 R 落点完全一致，方便排查"只在特定帧出现"的问题。
+        if (keyboard.pressed('KeyR')) {
+          state.x = ctx.random.float(0, ctx.width);
+          state.y = ctx.random.float(0, ctx.height);
+          persist();
+        }
+
         const half = state.size / 2;
         state.x = Math.min(ctx.width - half, Math.max(half, state.x));
         state.y = Math.min(ctx.height - half, Math.max(half, state.y));

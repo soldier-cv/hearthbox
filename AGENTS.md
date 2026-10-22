@@ -203,5 +203,6 @@ function addOne(n: number): number {
 | `docs/input.md`            | 三层输入、映射、M0 实测清单    |
 | `docs/pointer.md`          | 鼠标与触控：坐标换算、指针外观 |
 | `docs/cheats.md`           | 金手指与调试口子               |
+| `docs/cartridge-contract.md` | 卡带格式版本、资源上限、API 取舍 |
 | `docs/compatibility.md`    | 基线、性能预算、依赖标准       |
 | `docs/deployment.md`       | 开发环境与公网部署             |

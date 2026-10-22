@@ -7,9 +7,11 @@ import type {
   GameManifest,
   InputView,
   PlatformInfo,
+  Random,
 } from '@hearthbox/sdk';
 import type { Audio } from './audio.js';
 import { createAssetLoader } from './assets.js';
+import { createRandom, randomSeed } from './random.js';
 import { createCheatStore, loadCheatState, type CheatStore } from './cheat-store.js';
 import { createDebug } from './debug-api.js';
 import type { Display } from './display.js';
@@ -78,6 +80,7 @@ interface ContextDeps {
   cheats: CheatStore;
   inputView: InputView;
   debug: DebugApi;
+  random: Random;
   bridge: HostBridge;
   sdkVersion: string;
   resolveAsset: (path: string) => string;
@@ -86,7 +89,7 @@ interface ContextDeps {
 
 /** 组装游戏看到的 ctx。这一步没有状态，纯粹是接线，单独放便于阅读。 */
 function buildContext(deps: ContextDeps): GameContext {
-  const { display, audio, saves, cheats, inputView, bridge } = deps;
+  const { display, audio, saves, cheats, inputView, bridge, random } = deps;
   return {
     ctx2d: display.ctx,
     width: display.width,
@@ -101,6 +104,7 @@ function buildContext(deps: ContextDeps): GameContext {
       locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
     } satisfies PlatformInfo,
     cheats: cheats.api,
+    random: random,
     debug: deps.debug,
     exit: deps.onExit,
     rumble(strong, weak, ms) {
@@ -227,6 +231,8 @@ export function createSession(deps: SessionDeps): Session {
         cheats,
         inputView,
         debug: debug.api,
+        // 种子优先取调试参数；没有就用时间戳，至少能知道那次运行的起点。
+        random: createRandom(deps.debug?.seed ?? randomSeed()),
         bridge,
         sdkVersion: deps.sdkVersion,
         resolveAsset: options.resolveAsset,

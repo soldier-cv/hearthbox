@@ -145,6 +145,13 @@ export interface GameContext {
   readonly platform: PlatformInfo;
   /** 金手指：游戏声明，平台持有开关状态。见 cheats.md。 */
   readonly cheats: CheatsApi;
+  /**
+   * 可设定种子的随机数。
+   *
+   * 用它而不是 `Math.random()`，就能靠 `debug.seed` 复现整局行为。
+   * 平台不改 `Math.random`，因为它会污染同页面的其他代码。
+   */
+  readonly random: Random;
   /** 调试口子。默认关闭，关闭时所有方法都是空操作。 */
   readonly debug: DebugApi;
   /** 返回货架。 */
@@ -166,6 +173,20 @@ export type PointerMode =
   | 'visible'
   /** 显示系统指针，并强制使用"手型"。适合可点区域很明确的界面。 */
   | 'pointer';
+
+/** 可设定种子的随机数。用它而不是 `Math.random()`，才能靠 seed 复现整局行为。 */
+export interface Random {
+  /** [0, 1) 的浮点。 */
+  next(): number;
+  /** [min, max) 的整数。 */
+  int(min: number, max: number): number;
+  /** [min, max) 的浮点。 */
+  float(min: number, max: number): number;
+  /** 随机取一个元素。空数组返回 undefined。 */
+  pick<T>(items: readonly T[]): T | undefined;
+  /** 当前种子。复现时把它记下来即可重放同一串随机数。 */
+  readonly seed: number;
+}
 
 /**
  * 金手指声明。见 docs/cheats.md。

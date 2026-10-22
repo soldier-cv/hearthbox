@@ -6,3 +6,6 @@ docs/
 **/dist/
 apps/shell/public/fixtures/
 pnpm-lock.yaml
+
+# 根目录说明文件同样是中文表格，重排会产生大量无关 diff
+AGENTS.md
