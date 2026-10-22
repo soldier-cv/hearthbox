@@ -27,6 +27,7 @@ export default defineGame({
 - 游戏**不得**调用 `requestAnimationFrame`、`setTimeout` 驱动逻辑、或读取 `navigator.getGamepads()`。
 - 游戏**不得**依赖任何全局对象（`window`、`document` 之外的平台内部对象）。`ctx` 是唯一的平台接口。
 - 构建时 SDK **必须内联**进 `game.js`，产物里不允许出现任何裸导入（包括 `@hearthbox/sdk`）。原因：包入口在 blob URL 下执行，裸说明符无法解析，而 import maps 需要 Chromium 89+，基线是 87。SDK 只有类型和一个恒等函数，内联后不增加体积。
+- 输入有三层：`p1`（手柄层，键盘方向和 WASD 也在里面）、`keyboard`（完整物理键位）、`pointer`（鼠标/触控，坐标已是逻辑像素）。**只想做上下左右的小游戏只读 `p1` 就够；点击类游戏读 `pointer`。** 三者可同时工作，不需要声明"我只支持鼠标"。
 
 ## 2. 生命周期
 

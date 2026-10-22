@@ -1,7 +1,13 @@
 import type { GameContext, GameInstance } from '@hearthbox/sdk';
 import type { InputSource } from './input-source.js';
 
-export type { InputSource, RawDeviceState } from './input-source.js';
+export type {
+  InputSource,
+  RawInputTarget,
+  RawKeyboardState,
+  RawPadState,
+  RawPointerState,
+} from './input-source.js';
 
 /** 平台本体与壳之间唯一的接口。Web 壳与 Android 壳各有一个实现。 */
 export interface HostBridge {

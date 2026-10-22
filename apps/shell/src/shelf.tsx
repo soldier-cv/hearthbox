@@ -1,6 +1,6 @@
 import { render, type FunctionComponent } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { localFixtures, type ShelfEntry } from './fixtures.js';
+import { localFixtures, describeInputs, type ShelfEntry } from './fixtures.js';
 
 /**
  * 货架的最小版本（M1）。
@@ -36,6 +36,7 @@ const GameCard: FunctionComponent<{
   >
     <h2>{entry.name}</h2>
     <p>{entry.summary}</p>
+    <p class="inputs">{describeInputs(entry.inputs)}</p>
     <button
       type="button"
       onClick={(event) => {

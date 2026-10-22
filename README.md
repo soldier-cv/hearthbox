@@ -8,6 +8,7 @@ Hearthbox 是一个**手柄优先**的自制游戏平台：一个"主机壳" + �
 - **一份游戏包，到处运行**：游戏只针对 Hearthbox SDK 开发，不针对操作系统。
 - **壳负责一切平台差异**：手柄输入、画面缩放、音频、存档、安装、更新。
 - **10-foot 优先**：全程手柄/遥控器可操作，3 米外可读。
+- **输入不限手柄**：手柄、键盘、鼠标/触控同时可用。只做"点一点"的小游戏也能上平台。
 
 ## 状态
 
@@ -31,7 +32,8 @@ pnpm typecheck  # 全包类型检查
 | ----------------------------------------------- | ----------------------------------- |
 | [architecture.md](docs/architecture.md)         | 总体架构、分层、模块边界、数据流    |
 | [decisions.md](docs/decisions.md)               | 架构决策记录（为什么这样选）        |
-| [input.md](docs/input.md)                       | 手柄输入管线、Android 原生桥、映射  |
+| [input.md](docs/input.md)                       | 手柄、键盘、指针三层输入与映射      |
+| [pointer.md](docs/pointer.md)                   | 鼠标与触控：坐标换算、指针外观      |
 | [game-sdk.md](docs/game-sdk.md)                 | 游戏开发契约：生命周期、ctx API     |
 | [package-format.md](docs/package-format.md)     | 游戏包、catalog、签名、安装流程     |
 | [deployment.md](docs/deployment.md)             | 开发环境、ZeroTier、公网 HTTPS 部署 |

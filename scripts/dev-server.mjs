@@ -28,7 +28,9 @@ function run(command, args, options = {}) {
 }
 
 try {
+  // 构建全部夹具：新增夹具时不必再改这里。
   await run('pnpm', ['--filter', '@hearthbox/fixture-contract', 'build']);
+  await run('pnpm', ['--filter', '@hearthbox/fixture-inputs', 'build']);
   await run('node', ['scripts/link-fixtures.mjs']);
 } catch (error) {
   console.error('[dev-server] 夹具构建失败，Vite 不会启动');

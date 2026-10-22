@@ -1,5 +1,8 @@
 export type ScaleMode = 'integer' | 'fit';
 
+/** 指针在画面上的行为，与 sdk 的 PointerMode 一致。 */
+export type PointerMode = 'hidden' | 'visible' | 'pointer';
+
 export interface DisplayOptions {
   width: number;
   height: number;
@@ -16,6 +19,10 @@ export interface Display {
   /** 逻辑分辨率（不是 backing store 尺寸）。 */
   readonly width: number;
   readonly height: number;
+  /** 客户端坐标 → 逻辑坐标。鼠标/触控输入用它换算。 */
+  clientToLogical(clientX: number, clientY: number): { x: number; y: number };
+  /** 设置指针外观。 */
+  setPointerMode(mode: PointerMode): void;
 }
 
 export interface DisplayConfig {
@@ -73,6 +80,23 @@ export function createDisplay(options: DisplayOptions, config: DisplayConfig = {
     ctx,
     width: options.width,
     height: options.height,
+    /**
+     * 客户端坐标 → 逻辑坐标。
+     *
+     * 用 getBoundingClientRect 而不是自己记 scale：画布可能被 CSS 变换
+     * （比如 10-foot 模式下的整体缩放）影响，只有真实包围盒才可靠。
+     */
+    clientToLogical(clientX: number, clientY: number) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+      return {
+        x: ((clientX - rect.left) / rect.width) * options.width,
+        y: ((clientY - rect.top) / rect.height) * options.height,
+      };
+    },
+    setPointerMode(mode: PointerMode) {
+      canvas.style.cursor = mode === 'hidden' ? 'none' : mode === 'pointer' ? 'pointer' : 'default';
+    },
     attach(target: HTMLElement) {
       container = target;
       if (canvas.parentNode !== target) target.appendChild(canvas);

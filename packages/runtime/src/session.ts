@@ -151,7 +151,12 @@ export function createSession(deps: SessionDeps): Session {
 
       await loadSaves();
 
-      const gameInput = createInput({ sources: bridge.inputSources(), now });
+      const gameInput = createInput({
+        sources: bridge.inputSources(),
+        now,
+        // 鼠标坐标必须经显示层换算，否则点了画布左上角却在逻辑坐标里漂。
+        clientToLogical: (x, y) => display.clientToLogical(x, y),
+      });
       input = gameInput;
       for (const source of bridge.inputSources()) source.start();
 
@@ -162,7 +167,12 @@ export function createSession(deps: SessionDeps): Session {
         get players() {
           return gameInput.players();
         },
+        keyboard: gameInput.keyboard(),
+        pointer: gameInput.pointer(),
       };
+
+      // 初始指针形态由游戏清单声明；缺省视为需要指针（小游戏更像"网页"）。
+      display.setPointerMode(startOptions.manifest.pointer ?? 'visible');
 
       const audioApi: AudioApi = { ctx: audio.ctx, music: audio.music, sfx: audio.sfx };
       const platform: PlatformInfo = {
@@ -183,6 +193,9 @@ export function createSession(deps: SessionDeps): Session {
         exit: () => startOptions.onExit(),
         rumble(strong, weak, ms) {
           bridge.rumble?.(0, strong, weak, ms);
+        },
+        setPointerMode(mode) {
+          display.setPointerMode(mode);
         },
       };
 

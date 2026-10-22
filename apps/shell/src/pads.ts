@@ -1,4 +1,4 @@
-import { BUTTONS, createRawDeviceState } from '@hearthbox/runtime';
+import { BUTTONS, createRawPadState } from '@hearthbox/runtime';
 
 /**
  * M0 的手柄检测页。
@@ -10,7 +10,7 @@ import { BUTTONS, createRawDeviceState } from '@hearthbox/runtime';
 const container = document.querySelector<HTMLElement>('#pads');
 if (!container) throw new Error('#pads not found');
 
-const raw = createRawDeviceState();
+const raw = createRawPadState();
 
 function render(): void {
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];

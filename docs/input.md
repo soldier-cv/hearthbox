@@ -30,6 +30,19 @@ interface InputSource {
 
 ## 2. 游戏看到的状态
 
+平台把三类设备汇总成同一个 `InputView`。三类**彼此独立、可同时工作**：玩家可以一边推摇杆一边点鼠标，也可以只用键盘。游戏按需读其中任意一层，不必关心设备细节。
+
+```ts
+interface InputView {
+  readonly p1: PadState;              // 手柄层：预设映射，适合"只要上下左右"
+  readonly players: readonly PadState[];  // 长度 4
+  readonly keyboard: KeyboardState;   // 完整物理键位
+  readonly pointer: PointerState;     // 鼠标 / 触控 / 触控笔
+}
+```
+
+### 2.1 手柄层（也承接键盘预设与方向键）
+
 ```ts
 type Button =
   | 'south' | 'east' | 'west' | 'north'     // 按位置命名：A/B/X/Y 在不同手柄上标签不一样
@@ -48,8 +61,48 @@ interface PadState {
 }
 ```
 
+键盘的默认映射（`input.md` 第 6 节）也写进这一层：方向键与 WASD → `up/down/left/right`，J/K/U/I → `south/east/west/north`，Enter → `start`，Shift → `select`，Q/E → `l1/r1`，空格 → `south`。**只想做上下左右的小游戏，只读 `p1` 就够了**，不必知道玩家用的是手柄还是键盘。
+
 - **确认/返回的语义**：确认 = `south`，返回 = `east`（Xbox 布局）。设置中可切换为任天堂布局（交换 south/east），对货架 UI 和遵守此语义的游戏同时生效。
 - **死区**：摇杆默认径向死区 0.15，外圈 0.95 饱和；扳机 0.05。可在设置中调整，并按设备保存。
+
+### 2.2 键盘层（完整键位）
+
+```ts
+interface KeyboardState {
+  connected: boolean;
+  held(code: string): boolean;      // code 是 KeyboardEvent.code，如 'KeyA'、'ArrowLeft'
+  pressed(code: string): boolean;
+  released(code: string): boolean;
+  readonly heldCodes: readonly string[];
+}
+```
+
+- 用 **物理键位**（`code`）而不是字符：同一个键在不同布局下产生不同字符，游戏要的是"那个键"。
+- 这一层不受预设映射限制。`held('KeyZ')` 能拿到 `KeyZ`，即使它没映射到任何手柄按钮。
+- 文本输入（输入框、中文输入法）不在 v1 范围。需要打字的游戏等 v2。
+
+### 2.3 指针层（鼠标 / 触控）
+
+```ts
+interface PointerState {
+  connected: boolean;
+  inside: boolean;      // 是否在画布内
+  x: number;            // 逻辑坐标，原点在画布左上角
+  y: number;
+  moved: boolean;
+  dx: number; dy: number;   // 本帧相对位移
+  wheel: number;            // 本帧滚轮位移，向下为正
+  held(b: 'left' | 'middle' | 'right'): boolean;
+  pressed(b: 'left' | 'middle' | 'right'): boolean;
+  released(b: 'left' | 'middle' | 'right'): boolean;
+}
+```
+
+- 坐标**已经换算成逻辑像素**。游戏不用管画布被放大到了 640×360 还是 1280×720，`pointer.x` 永远在 `0..width` 内。
+- 触摸与鼠标走同一条路径（Pointer Events），触摸就是"点一下"。
+- 指针外观由 `game.json` 的 `pointer` 声明，运行时可 `ctx.setPointerMode('hidden' | 'visible' | 'pointer')` 切换。
+- 完整的鼠标/触摸说明见 `docs/pointer.md`。
 
 ## 3. 保留输入（游戏收不到）
 

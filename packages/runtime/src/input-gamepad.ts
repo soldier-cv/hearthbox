@@ -1,4 +1,4 @@
-import { bitOf, type InputSource, type RawDeviceState } from './input-source.js';
+import { bitOf, type InputSource, type RawInputTarget, type RawPadState } from './input-source.js';
 
 /** 标准 Gamepad 映射的按钮索引（mapping === 'standard'）。 */
 const STANDARD_BUTTONS: Array<[button: string, index: number]> = [
@@ -50,7 +50,8 @@ export function createGamepadSource(config: GamepadSourceConfig = {}): InputSour
     stop() {
       running = false;
     },
-    drain(raw: RawDeviceState) {
+    drain(target: RawInputTarget) {
+      const raw: RawPadState = target.pad;
       if (!running) {
         raw.connected = false;
         return;

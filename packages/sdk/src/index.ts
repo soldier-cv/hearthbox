@@ -38,12 +38,59 @@ export interface PadState {
   released(button: Button): boolean;
 }
 
+/** 一次指针事件的原始坐标与按钮状态，坐标由平台换算成逻辑像素。 */
+export interface PointerState {
+  /** 是否有指针设备（有鼠标、触摸屏或触控笔时为 true）。 */
+  readonly connected: boolean;
+  /** 指针是否在画布内。 */
+  readonly inside: boolean;
+  /** 逻辑坐标系下的位置，原点在画布左上角。 */
+  readonly x: number;
+  readonly y: number;
+  /** 本帧是否移动过。 */
+  readonly moved: boolean;
+  /** 本帧内移动的相对量，逻辑像素。 */
+  readonly dx: number;
+  readonly dy: number;
+  held(button: PointerButton): boolean;
+  /** 本次 update 中刚按下。 */
+  pressed(button: PointerButton): boolean;
+  released(button: PointerButton): boolean;
+  /** 自上次 update 以来的滚轮位移（逻辑像素，向下为正）。 */
+  readonly wheel: number;
+}
+
+export type PointerButton = 'left' | 'middle' | 'right';
+
+/**
+ * 键盘状态。
+ *
+ * 用 `KeyboardEvent.code`（物理键位）查询，例如 `held('KeyA')`、`held('ArrowLeft')`。
+ * 不用字符：同一个键在不同键盘布局下产生不同字符，而游戏要的是"那个键"。
+ * 文本输入（输入框）不在 v1 范围，见 game-sdk.md。
+ */
+export interface KeyboardState {
+  readonly connected: boolean;
+  /** 本帧按住。 */
+  held(code: string): boolean;
+  /** 本次 update 中刚按下。 */
+  pressed(code: string): boolean;
+  /** 本次 update 中刚松开。 */
+  released(code: string): boolean;
+  /** 当前按住的所有键的快照；不要在 update 里保存引用。 */
+  readonly heldCodes: readonly string[];
+}
+
 /** 游戏看到的输入视图。 */
 export interface InputView {
   /** 玩家一，等价于 players[0]。 */
   readonly p1: PadState;
   /** 长度恒为 4，未连接的设备 connected=false。 */
   readonly players: readonly PadState[];
+  /** 键盘。没有键盘输入时 `connected` 为 false。 */
+  readonly keyboard: KeyboardState;
+  /** 鼠标 / 触控。没有指针设备时 `connected` 为 false。 */
+  readonly pointer: PointerState;
 }
 
 /** 已解码的图片；预留给以后细化（比如给 SVG 加尺寸约束）。 */
@@ -100,7 +147,21 @@ export interface GameContext {
   exit(): void;
   /** 尽力而为，没有马达时静默。 */
   rumble(strong: number, weak: number, ms: number): void;
+  /**
+   * 请求指针形态。默认跟随 game.json 的 `pointer` 声明；
+   * 需要在运行中切换（比如小游戏打开菜单）时调用。
+   */
+  setPointerMode(mode: PointerMode): void;
 }
+
+/** 指针在画面上的行为。 */
+export type PointerMode =
+  /** 隐藏系统指针，游戏自己画。适合全屏手柄游戏。 */
+  | 'hidden'
+  /** 显示系统指针（默认箭头）。适合点击类小游戏。 */
+  | 'visible'
+  /** 显示系统指针，并强制使用"手型"。适合可点区域很明确的界面。 */
+  | 'pointer';
 
 export interface GameInstance {
   /** 固定 60Hz，dt 恒为 1/60。必须纯逻辑，不碰 DOM/Canvas。 */
@@ -137,8 +198,19 @@ export interface GameManifest {
     scale: 'integer' | 'fit';
   };
   players: { min: number; max: number };
+  /**
+   * 这个游戏需要哪些输入。缺省为 `pad`。
+   *
+   * 货架据此显示"支持鼠标"等标识；运行时不据此禁用输入（玩家随时可能
+   * 换设备），只决定初始指针形态与提示文案。
+   */
+  input?: readonly InputKind[];
+  /** 初始指针形态，缺省 `visible`。`hidden` 适合纯手柄游戏。 */
+  pointer?: PointerMode;
   license: string;
   assetsLicense?: string;
 }
+
+export type InputKind = 'pad' | 'keyboard' | 'pointer';
 
 export type { GameManifest as Manifest };

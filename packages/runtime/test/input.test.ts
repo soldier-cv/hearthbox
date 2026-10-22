@@ -56,7 +56,6 @@ describe('createInput', () => {
     source.start();
     source.raw.connected = true;
 
-    // 源报告：本帧没有按住，但触碰过（south 的位）
     source.raw.buttons = 0;
     source.raw.touches = 1 << 0;
     input.sample();

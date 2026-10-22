@@ -30,6 +30,8 @@ function stubDisplay(): ReturnType<typeof createDisplay> {
     width: 320,
     height: 180,
     attach: () => () => {},
+    clientToLogical: (x: number, y: number) => ({ x, y }),
+    setPointerMode: () => {},
   };
 }
 
