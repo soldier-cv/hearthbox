@@ -204,5 +204,12 @@ void ready.catch(showCrash);
 
 window.addEventListener('beforeunload', () => {
   unlockPoll.stop();
+  // 先同步发起写入：等到 stop() 的异步落盘往往已经来不及。
+  session?.flushNow();
   void session?.stop().catch(() => {});
+});
+
+// pagehide 覆盖"切到后台被系统回收"的情况；beforeunload 在部分移动端不触发。
+window.addEventListener('pagehide', () => {
+  session?.flushNow();
 });

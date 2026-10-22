@@ -4,12 +4,12 @@ import { resolve } from 'node:path';
 /**
  * 壳的 Vite 配置。
  *
- * 关键点：游戏代码永远不经过打包器。开发期从 /fixtures/ 用 fetch 取文本，
- * 再造 blob URL import；生产期从 IndexedDB 取。两边是同一条代码路径，
- * 也就不会出现"dev 能跑、打包后跑不了"。
+ * 游戏代码永远不经过打包器：开发期用 fetch 取文本再造 blob URL import，
+ * 生产期从 IndexedDB 取。两边是同一条代码路径，不会出现
+ * "dev 能跑、打包后跑不了"。
  *
- * Vite 的 public 目录会被原样复制，但禁止被 source code import——
- * 这正是我们要的：宿主只用 fetch 取它，不 import。
+ * 工作区里的游戏由 scripts/dev-server.mjs 的网关提供，不经过这里——
+ * 游戏不在平台仓库内，不该被壳的构建配置感知。
  */
 export default defineConfig({
   build: {
@@ -27,5 +27,12 @@ export default defineConfig({
     // 显式绑 127.0.0.1：Playwright 与 curl 探的是 IPv4，
     // 而 Vite 默认只监听 localhost（可能只解析到 ::1）。
     host: '127.0.0.1',
+    // dev-server.mjs 的网关转发到这里。
+    port: 5200,
+    strictPort: true,
+    fs: {
+      // 允许读到工作区根：工作区游戏的 dist 在平台仓库外面。
+      allow: [resolve(__dirname, '../..'), resolve(__dirname, '../../..')],
+    },
   },
 });

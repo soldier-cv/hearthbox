@@ -1,19 +1,23 @@
-import type { PadState, PointerButton } from '@hearthbox/sdk';
-import type { Display } from './display.js';
+import type { InputView, PadState } from '@hearthbox/sdk';
 import { applyRadialDeadzone, applyTriggerDeadzone, mergeMove, snapAxis } from './deadzone.js';
 import {
   bitOf,
   createRawKeyboardState,
   createRawPadState,
   createRawPointerState,
-  pointerBit,
   type InputSource,
   type RawInputTarget,
-  type RawKeyboardState,
   type RawPadState,
-  type RawPointerState,
 } from './input-source.js';
+import {
+  createKeyboardView,
+  createPointerView,
+  type KeyboardView,
+  type PointerView,
+} from './input-views.js';
 import { createPadState, type MutablePadState } from './pad-state.js';
+
+export type { KeyboardView, PointerView } from './input-views.js';
 
 export interface InputOptions {
   /** 径向死区，默认 0.15。 */
@@ -34,7 +38,7 @@ export const DEFAULT_INPUT_OPTIONS: InputOptions = {
 };
 
 /** start+select 要按住多久才算系统菜单请求。 */
-const SYSTEM_MENU_HOLD_MS = 1000;
+const MENU_HOLD_MS = 1000;
 
 export interface Input {
   /** 每帧调用一次，把各源的状态写入内部预分配的视图。 */
@@ -47,30 +51,6 @@ export interface Input {
   systemMenuRequested(): boolean;
   /** 动态调整死区等参数（设置页使用）。 */
   configure(options: Partial<InputOptions>): void;
-}
-
-/** 键盘视图的运行时实现（对外只暴露 sdk 的只读接口）。 */
-export interface KeyboardView {
-  readonly connected: boolean;
-  held(code: string): boolean;
-  pressed(code: string): boolean;
-  released(code: string): boolean;
-  readonly heldCodes: readonly string[];
-}
-
-/** 指针视图的运行时实现。 */
-export interface PointerView {
-  readonly connected: boolean;
-  readonly inside: boolean;
-  readonly x: number;
-  readonly y: number;
-  readonly moved: boolean;
-  readonly dx: number;
-  readonly dy: number;
-  readonly wheel: number;
-  held(button: PointerButton): boolean;
-  pressed(button: PointerButton): boolean;
-  released(button: PointerButton): boolean;
 }
 
 export interface InputDeps {
@@ -89,126 +69,90 @@ export function createInput(deps: InputDeps): Input {
   const options: InputOptions = { ...DEFAULT_INPUT_OPTIONS, ...deps.options };
   const now = deps.now ?? (() => performance.now());
   const sources = deps.sources;
-  const toLogical = deps.clientToLogical ?? defaultClientToLogical;
+  const toLogical = deps.clientToLogical ?? ((x, y) => ({ x, y }));
 
   const pads: MutablePadState[] = [];
   for (let i = 0; i < 4; i += 1) pads.push(createPadState());
 
-  // 每个源一份独立的 target；手柄部分各自独占一个 pad，键盘/指针共用。
+  // 每个源一份独立 target；手柄各自独占 pad，键盘/指针共享。
   const targets: RawInputTarget[] = sources.map(() => ({
     pad: createRawPadState(),
     keyboard: createRawKeyboardState(),
     pointer: createRawPointerState(),
   }));
-
   const sharedKeyboard = createRawKeyboardState();
   const sharedPointer = createRawPointerState();
 
+  // 定长数组，避免每帧分配。
   const frameButtons = new Int32Array(4);
   const frameTouches = new Int32Array(4);
   const frameConnected = new Uint8Array(4);
 
+  const keyboard = createKeyboardView();
+  const pointer = createPointerView();
+
   let startSelectSince = -1;
   let menuRequested = false;
 
-  // 键盘视图：集合跨帧复用，游戏只读。
-  const keyboardHeld = new Set<string>();
-  const keyboardPressed = new Set<string>();
-  const keyboardReleased = new Set<string>();
-  let keyboardCodes: string[] = [];
-
-  // 指针视图：上次逻辑坐标用于算 dx/dy。
-  let pointerX = 0;
-  let pointerY = 0;
-  let pointerPrevX = 0;
-  let pointerPrevY = 0;
-  let pointerMoved = false;
-  let pointerWheel = 0;
-  let pointerInside = false;
-  let pointerConnected = false;
-  let pointerHeldMask = 0;
-  let pointerPressedMask = 0;
-  let pointerReleasedMask = 0;
-
-  const keyboardView: KeyboardView = {
-    get connected() {
-      return sharedKeyboard.connected;
-    },
-    held: (code) => keyboardHeld.has(code),
-    pressed: (code) => keyboardPressed.has(code),
-    released: (code) => keyboardReleased.has(code),
-    get heldCodes() {
-      return keyboardCodes;
-    },
-  };
-
-  const pointerView: PointerView = {
-    get connected() {
-      return pointerConnected;
-    },
-    get inside() {
-      return pointerInside;
-    },
-    get x() {
-      return pointerX;
-    },
-    get y() {
-      return pointerY;
-    },
-    get moved() {
-      return pointerMoved;
-    },
-    get dx() {
-      return pointerX - pointerPrevX;
-    },
-    get dy() {
-      return pointerY - pointerPrevY;
-    },
-    get wheel() {
-      return pointerWheel;
-    },
-    held: (button) => (pointerHeldMask & pointerBit(button)) !== 0,
-    pressed: (button) => (pointerPressedMask & pointerBit(button)) !== 0,
-    released: (button) => (pointerReleasedMask & pointerBit(button)) !== 0,
-  };
+  const scratch = { x: 0, y: 0 };
 
   function sample(): void {
     frameButtons.fill(0);
     frameTouches.fill(0);
     frameConnected.fill(0);
 
-    // 共享槽位每帧重置；源写入即视为存在。
-    resetKeyboard(sharedKeyboard);
+    resetShared();
+
+    for (let index = 0; index < sources.length; index += 1) {
+      const target = targets[index]!;
+      resetTarget(target);
+      sources[index]!.drain(target);
+      collectPad(target.pad, index);
+    }
+
+    commitPads();
+    if (options.swapSouthEast) swapSouthEast();
+    updateMenu();
+
+    keyboard.update(sharedKeyboard);
+    pointer.update(sharedPointer, toLogical);
+  }
+
+  function resetShared(): void {
+    sharedKeyboard.connected = false;
+    sharedKeyboard.held.clear();
+    sharedKeyboard.pressed.clear();
+    sharedKeyboard.released.clear();
     sharedPointer.heldMask = 0;
     sharedPointer.pressedMask = 0;
     sharedPointer.releasedMask = 0;
     sharedPointer.wheel = 0;
+  }
 
-    for (let s = 0; s < sources.length; s += 1) {
-      const target = targets[s]!;
-      target.pad.buttons = 0;
-      target.pad.touches = 0;
-      target.pad.deviceKey = '';
-      target.pad.hatX = 0;
-      target.pad.hatY = 0;
-      // 让该源看到最新共享状态，它只需往里写。
-      target.keyboard = sharedKeyboard;
-      target.pointer = sharedPointer;
+  function resetTarget(target: RawInputTarget): void {
+    target.pad.buttons = 0;
+    target.pad.touches = 0;
+    target.pad.deviceKey = '';
+    target.pad.hatX = 0;
+    target.pad.hatY = 0;
+    target.keyboard = sharedKeyboard;
+    target.pointer = sharedPointer;
+  }
 
-      sources[s]!.drain(target);
+  function collectPad(raw: RawPadState, index: number): void {
+    if (!raw.connected) return;
+    const slot = raw.slot >= 0 && raw.slot < 4 ? raw.slot : index % 4;
+    frameConnected[slot] = 1;
 
-      const pad = target.pad;
-      if (pad.connected) {
-        const slot = pad.slot >= 0 && pad.slot < 4 ? pad.slot : s % 4;
-        frameConnected[slot] = 1;
-        const dpad = hatBits(pad.hatX, pad.hatY);
-        const buttons = pad.buttons | dpad;
-        frameButtons[slot] = (frameButtons[slot] ?? 0) | buttons;
-        frameTouches[slot] = (frameTouches[slot] ?? 0) | pad.touches | buttons;
-        writeAxes(pads[slot]!, pad);
-      }
-    }
+    const dir = hatBits(raw.hatX, raw.hatY);
+    const buttons = raw.buttons | dir;
+    frameButtons[slot] = (frameButtons[slot] ?? 0) | buttons;
+    frameTouches[slot] = (frameTouches[slot] ?? 0) | raw.touches | buttons;
 
+    writeAxes(pads[slot]!, raw);
+  }
+
+  function commitPads(): void {
     for (let slot = 0; slot < 4; slot += 1) {
       const pad = pads[slot]!;
       const previous = pad.heldMask;
@@ -222,60 +166,20 @@ export function createInput(deps: InputDeps): Input {
 
       if (!connected) clearPad(pad);
     }
-
-    if (options.swapSouthEast) swapSouthEast();
-    updateSystemMenu();
-    updateKeyboardView();
-    updatePointerView();
-  }
-
-  function updateKeyboardView(): void {
-    keyboardHeld.clear();
-    keyboardPressed.clear();
-    keyboardReleased.clear();
-    for (const code of sharedKeyboard.held) keyboardHeld.add(code);
-    for (const code of sharedKeyboard.pressed) keyboardPressed.add(code);
-    for (const code of sharedKeyboard.released) keyboardReleased.add(code);
-    keyboardCodes = [...keyboardHeld];
-  }
-
-  function updatePointerView(): void {
-    pointerConnected = sharedPointer.connected;
-    pointerPrevX = pointerX;
-    pointerPrevY = pointerY;
-
-    if (pointerConnected) {
-      const logical = toLogical(sharedPointer.clientX, sharedPointer.clientY);
-      pointerX = logical.x;
-      pointerY = logical.y;
-      pointerInside = sharedPointer.inside;
-      pointerHeldMask = sharedPointer.heldMask;
-      pointerPressedMask = sharedPointer.pressedMask;
-      pointerReleasedMask = sharedPointer.releasedMask;
-      pointerWheel = sharedPointer.wheel;
-      pointerMoved = pointerX !== pointerPrevX || pointerY !== pointerPrevY;
-    } else {
-      pointerInside = false;
-      pointerHeldMask = 0;
-      pointerPressedMask = 0;
-      pointerReleasedMask = 0;
-      pointerWheel = 0;
-      pointerMoved = false;
-    }
   }
 
   function writeAxes(pad: MutablePadState, raw: RawPadState): void {
-    applyRadialDeadzone(raw.lx, raw.ly, options.deadzone, options.outerDeadzone, scratchVector);
-    pad.lx = scratchVector.x;
-    pad.ly = scratchVector.y;
+    applyRadialDeadzone(raw.lx, raw.ly, options.deadzone, options.outerDeadzone, scratch);
+    pad.lx = scratch.x;
+    pad.ly = scratch.y;
 
-    mergeMove(pad.lx, pad.ly, raw.hatX, raw.hatY, mergeScratch);
-    pad.move.x = mergeScratch.x;
-    pad.move.y = mergeScratch.y;
+    mergeMove(pad.lx, pad.ly, raw.hatX, raw.hatY, scratch);
+    pad.move.x = scratch.x;
+    pad.move.y = scratch.y;
 
-    applyRadialDeadzone(raw.rx, raw.ry, options.deadzone, options.outerDeadzone, scratchVector);
-    pad.rx = scratchVector.x;
-    pad.ry = scratchVector.y;
+    applyRadialDeadzone(raw.rx, raw.ry, options.deadzone, options.outerDeadzone, scratch);
+    pad.rx = scratch.x;
+    pad.ry = scratch.y;
 
     pad.lt = applyTriggerDeadzone(raw.lt, options.triggerDeadzone);
     pad.rt = applyTriggerDeadzone(raw.rt, options.triggerDeadzone);
@@ -284,29 +188,23 @@ export function createInput(deps: InputDeps): Input {
   function swapSouthEast(): void {
     const south = bitOf('south');
     const east = bitOf('east');
-    if (south < 0 || east < 0) return;
-    for (let slot = 0; slot < 4; slot += 1) {
-      const pad = pads[slot]!;
+    for (const pad of pads) {
       pad.heldMask = swapBits(pad.heldMask, south, east);
       pad.pressedMask = swapBits(pad.pressedMask, south, east);
       pad.releasedMask = swapBits(pad.releasedMask, south, east);
     }
   }
 
-  function updateSystemMenu(): void {
-    const pad = pads[0]!;
-    const held = pad.heldMask;
-    const start = bitOf('start');
-    const select = bitOf('select');
-    const both =
-      start >= 0 && select >= 0 && (held & (1 << start)) !== 0 && (held & (1 << select)) !== 0;
+  function updateMenu(): void {
+    const held = pads[0]!.heldMask;
+    const both = (held & (1 << bitOf('start'))) !== 0 && (held & (1 << bitOf('select'))) !== 0;
 
     if (!both) {
       startSelectSince = -1;
       return;
     }
     if (startSelectSince < 0) startSelectSince = now();
-    if (now() - startSelectSince >= SYSTEM_MENU_HOLD_MS) {
+    if (now() - startSelectSince >= MENU_HOLD_MS) {
       menuRequested = true;
       startSelectSince = -1;
     }
@@ -315,8 +213,8 @@ export function createInput(deps: InputDeps): Input {
   return {
     sample,
     players: () => pads,
-    keyboard: () => keyboardView,
-    pointer: () => pointerView,
+    keyboard: () => keyboard.view,
+    pointer: () => pointer.view,
     systemMenuRequested: () => {
       const requested = menuRequested;
       menuRequested = false;
@@ -328,16 +226,9 @@ export function createInput(deps: InputDeps): Input {
   };
 }
 
-/** 供宿主持有的只读视图，避免每帧 getter 分配。 */
-export function inputView(input: Input): {
-  readonly p1: PadState;
-  readonly players: readonly PadState[];
-  readonly keyboard: KeyboardView;
-  readonly pointer: PointerView;
-} {
+/** 供宿主持有的只读视图。 */
+export function inputView(input: Input): InputView {
   const players = input.players();
-  const keyboard = input.keyboard();
-  const pointer = input.pointer();
   return {
     get p1() {
       return players[0]!;
@@ -345,23 +236,9 @@ export function inputView(input: Input): {
     get players() {
       return players;
     },
-    keyboard,
-    pointer,
+    keyboard: input.keyboard(),
+    pointer: input.pointer(),
   };
-}
-
-const scratchVector = { x: 0, y: 0 };
-const mergeScratch = { x: 0, y: 0 };
-
-function defaultClientToLogical(clientX: number, clientY: number): { x: number; y: number } {
-  return { x: clientX, y: clientY };
-}
-
-function resetKeyboard(keyboard: RawKeyboardState): void {
-  keyboard.connected = false;
-  keyboard.held.clear();
-  keyboard.pressed.clear();
-  keyboard.released.clear();
 }
 
 function clearPad(pad: MutablePadState): void {
@@ -392,5 +269,3 @@ function swapBits(mask: number, a: number, b: number): number {
   if (abit === bbit) return mask;
   return mask ^ (1 << a) ^ (1 << b);
 }
-
-export type { RawPointerState, RawKeyboardState, Display };

@@ -30,6 +30,14 @@ export interface Storage {
   get<T>(store: StoreName, key: IDBValidKey): Promise<T | undefined>;
   put(store: StoreName, key: IDBValidKey, value: unknown): Promise<void>;
   delete(store: StoreName, key: IDBValidKey): Promise<void>;
+  /**
+   * 发起写入但不等待完成。
+   *
+   * 用途只有一个：页面正在卸载时（`beforeunload` / `pagehide`）必须同步发起
+   * 写请求，等 Promise 就来不及了。浏览器会尽力把已排队的事务执行完，
+   * 但**不保证**成功 —— 所以这只是兜底，正常路径仍应走 `put`。
+   */
+  putNow(store: StoreName, key: IDBValidKey, value: unknown): void;
   /** 在一个事务里执行多步，任何异常都回滚。 */
   transaction<T>(
     stores: StoreName[],
@@ -121,6 +129,14 @@ function wrap(db: IDBDatabase): Storage {
     },
     async delete(store: StoreName, key: IDBValidKey): Promise<void> {
       await write(store, (objectStore) => objectStore.delete(key));
+    },
+    putNow(store: StoreName, key: IDBValidKey, value: unknown): void {
+      // 只发起，不等待。异常也无处上报 —— 调用方在页面卸载路径上。
+      try {
+        db.transaction(store, 'readwrite').objectStore(store).put(value, key);
+      } catch {
+        // 数据库已关闭或页面已在销毁，无能为力。
+      }
     },
     async transaction<T>(
       stores: StoreName[],

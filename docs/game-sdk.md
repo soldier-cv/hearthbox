@@ -110,18 +110,23 @@ interface AudioApi {
 
 ### 存档
 
+**存档是平台默认能力，游戏可以选择不用。** 不需要注册、不需要申请、不需要在 `game.json` 里声明。只要调 `ctx.storage.set` 就会存，不调就什么都不存。
+
 ```ts
 interface StorageApi {
-  get<T>(key: string): T | undefined;          // 同步，读内存副本
-  set(key: string, value: unknown): void;      // 同步写入内存，异步落盘
+  get<T>(key: string): T | undefined;      // 同步，读内存副本
+  set(key: string, value: unknown): void;  // 同步写内存，异步落盘
   delete(key: string): void;
 }
 ```
 
-- 每个游戏一个命名空间，游戏之间互不可见。
-- 值必须可 `structuredClone`（纯 JSON 数据），单游戏存档上限 1MB。
-- 平台节流落盘（约 1 秒合并一次），并在 `pause`、`visibilitychange`、`exit` 时立即 flush。
-- 因为 Android 可能直接杀进程，关键进度应在获得时立即 `set`，不要攒到关卡结束。
+- 每个游戏一个命名空间（按 `game.json` 的 `id` 隔离），游戏之间互不可见。
+- 值必须是可结构化克隆的纯数据，单游戏上限 1MB。
+- 平台每秒最多落盘一次（合并写），并在 `pause`、退出、页面卸载时立刻落盘。
+- **关键进度要在拿到时立刻 `set`**。Android 可能直接杀进程，`dispose` 不保证执行。
+- 卸载游戏时存档默认保留，可勾选"同时删除存档"。
+
+不想做存档的游戏什么都不用写，`ctx.storage` 就在那里，不用即可。
 
 ## 4. game.json
 

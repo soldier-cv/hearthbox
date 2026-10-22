@@ -1,6 +1,5 @@
 import type {
   AudioApi,
-  CheatsApi,
   CheatDefinition,
   DebugApi,
   GameContext,
@@ -8,20 +7,17 @@ import type {
   GameManifest,
   InputView,
   PlatformInfo,
-  StorageApi,
 } from '@hearthbox/sdk';
 import type { Audio } from './audio.js';
 import { createAssetLoader } from './assets.js';
-import { resolveCheats } from './cheats.js';
-import { clampTimeScale } from './debug.js';
+import { createCheatStore, loadCheatState, type CheatStore } from './cheat-store.js';
+import { createDebug } from './debug-api.js';
 import type { Display } from './display.js';
 import type { HostBridge } from './host.js';
 import { createInput, type Input } from './input.js';
 import { createLoop, type Loop } from './loop.js';
+import { createSaveStore, type SaveStore } from './save-store.js';
 import type { Storage } from './storage.js';
-
-/** 存档合并落盘的最小间隔，见 runtime-api.md 第 7 节。 */
-const SAVE_THROTTLE_MS = 1000;
 
 export interface SessionDeps {
   bridge: HostBridge;
@@ -39,8 +35,8 @@ export interface SessionDeps {
   };
   /** 注入时钟与 rAF，测试时手动推进。 */
   now?: () => number;
-  requestFrame?: (cb: (time: number) => void) => number;
-  cancelFrame?: (handle: number) => void;
+  requestFrame?: ((cb: (time: number) => void) => number) | undefined;
+  cancelFrame?: ((handle: number) => void) | undefined;
 }
 
 export interface SessionStartOptions {
@@ -60,11 +56,13 @@ export interface Session {
   /** 关闭系统菜单后恢复游戏。 */
   resume(): void;
   /**
-   * 切换金手指开关。设置页与将来的金手指面板用它。
+   * 立刻发起存档写入。
    *
-   * 游戏侧只读 `ctx.cheats.enabled()`；写入只发生在平台侧，
-   * 这样"谁拥有开关状态"始终只有一处。
+   * 页面卸载时调用：`beforeunload` 等不了异步，但可以同步发 IndexedDB 写请求。
+   * 不调这个，玩家直接关标签页就可能丢进度。
    */
+  flushNow(): void;
+  /** 切换金手指开关。设置页与金手指面板用它。 */
   setCheat(id: string, enabled: boolean): void;
   /** 当前已声明的金手指（游戏 create 之后才有内容）。 */
   readonly cheats: readonly CheatDefinition[];
@@ -73,6 +71,48 @@ export interface Session {
   readonly running: boolean;
 }
 
+interface ContextDeps {
+  display: Display;
+  audio: Audio;
+  saves: SaveStore;
+  cheats: CheatStore;
+  inputView: InputView;
+  debug: DebugApi;
+  bridge: HostBridge;
+  sdkVersion: string;
+  resolveAsset: (path: string) => string;
+  onExit: () => void;
+}
+
+/** 组装游戏看到的 ctx。这一步没有状态，纯粹是接线，单独放便于阅读。 */
+function buildContext(deps: ContextDeps): GameContext {
+  const { display, audio, saves, cheats, inputView, bridge } = deps;
+  return {
+    ctx2d: display.ctx,
+    width: display.width,
+    height: display.height,
+    input: inputView,
+    assets: createAssetLoader(deps.resolveAsset, audio),
+    audio: { ctx: audio.ctx, music: audio.music, sfx: audio.sfx } satisfies AudioApi,
+    storage: saves.api,
+    platform: {
+      shell: bridge.kind,
+      sdkVersion: deps.sdkVersion,
+      locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
+    } satisfies PlatformInfo,
+    cheats: cheats.api,
+    debug: deps.debug,
+    exit: deps.onExit,
+    rumble(strong, weak, ms) {
+      bridge.rumble?.(0, strong, weak, ms);
+    },
+    setPointerMode(mode) {
+      display.setPointerMode(mode);
+    },
+  };
+}
+
+/** 一次游戏会话：加载、跑帧、暂停、退出。 */
 export function createSession(deps: SessionDeps): Session {
   const { bridge, display, audio, storage, gameId } = deps;
   const now = deps.now ?? (() => performance.now());
@@ -82,140 +122,61 @@ export function createSession(deps: SessionDeps): Session {
   let loop: Loop | null = null;
   let unsubscribeLifecycle: (() => void) | null = null;
   let running = false;
+  let saves: SaveStore | null = null;
+  let cheats: CheatStore | null = null;
 
-  // 存档：内存副本同步读写，异步合并落盘。
-  const saves = new Map<string, unknown>();
-  const dirty = new Set<string>();
-  let saveTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastFlush = 0;
+  const debug = createDebug(deps.debug);
 
-  const saveKey = (key: string): [string, string] => [gameId, key];
+  function startLoop(gameInput: Input, options: SessionStartOptions): void {
+    const gameLoop = createLoop(
+      {
+        update() {
+          gameInput.sample();
 
-  // 金手指开关：与存档分开落盘。卸载游戏不应清掉玩家关掉过哪些作弊，
-  // 否则重装之后又全部打开了。
-  const dirtyCheats = new Set<string>();
-  let cheatTimer: ReturnType<typeof setTimeout> | null = null;
-  const cheatStateRef: { current: Map<string, boolean> | null } = { current: null };
+          // 调试：手动步进模式下只有待推步数时才真正跑 update。
+          if (!debug.shouldStep()) return;
 
-  /**
-   * 金手指状态在会话层持有（不在 start() 作用域里），
-   * 因为设置页会在游戏运行中随时调用 setCheat。
-   */
-  const declaredCheats: CheatDefinition[] = [];
-  const declaredCheatIds = new Set<string>();
-  let cheatState = new Map<string, boolean>();
-  const previousCheatState = new Map<string, boolean>();
-  const justEnabledIds = new Set<string>();
-  let savedCheatValues: Record<string, boolean> = {};
+          if (gameInput.systemMenuRequested()) {
+            gameLoop.paused = true;
+            instance?.pause?.();
+            options.onSystemMenu?.();
+            return;
+          }
 
-  function applyCheat(id: string, enabled: boolean): void {
-    if (!cheatState.has(id)) return;
-    cheatState.set(id, enabled);
-    dirtyCheats.add(id);
-    scheduleFlushCheats();
-  }
-
-  async function loadCheatState(id: string): Promise<Record<string, boolean>> {
-    const allKeys = await storage.keys('cheats');
-    const result: Record<string, boolean> = {};
-    for (const key of allKeys) {
-      if (!Array.isArray(key) || key.length !== 2 || key[0] !== id) continue;
-      const cheatId = key[1];
-      if (typeof cheatId !== 'string') continue;
-      const value = await storage.get<boolean>('cheats', key);
-      if (typeof value === 'boolean') result[cheatId] = value;
-    }
-    return result;
-  }
-
-  function scheduleFlushCheats(): void {
-    if (cheatTimer !== null) return;
-    cheatTimer = setTimeout(() => {
-      cheatTimer = null;
-      void flushCheats().catch(() => {});
-    }, SAVE_THROTTLE_MS);
-  }
-
-  async function flushCheats(): Promise<void> {
-    if (dirtyCheats.size === 0) return;
-    const state = cheatStateRef.current;
-    if (!state) return;
-    const ids = [...dirtyCheats];
-    dirtyCheats.clear();
-    for (const id of ids) {
-      try {
-        await storage.put('cheats', [gameId, id], state.get(id) === true);
-      } catch {
-        dirtyCheats.add(id);
-      }
-    }
-  }
-  function scheduleFlush(): void {
-    if (saveTimer !== null) return;
-    const delay = Math.max(0, SAVE_THROTTLE_MS - (now() - lastFlush));
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
-      void flush().catch(() => {});
-    }, delay);
-  }
-
-  async function flush(): Promise<void> {
-    if (dirty.size === 0) return;
-    const keys = [...dirty];
-    dirty.clear();
-    lastFlush = now();
-    for (const key of keys) {
-      try {
-        const value = saves.get(key);
-        if (value === undefined) {
-          await storage.delete('saves', saveKey(key));
-        } else {
-          await storage.put('saves', saveKey(key), value);
-        }
-      } catch (error) {
-        dirty.add(key);
-        throw error;
-      }
-    }
-  }
-
-  async function loadSaves(): Promise<void> {
-    // 存档键是复合键 [gameId, key]（见 package-format.md 第 6 节）。
-    // 不能按字符串前缀扫：IDBValidKey 的数组键不会变成 "id\0key"。
-    const allKeys = await storage.keys('saves');
-    const entries = await Promise.all(
-      allKeys.map(async (key) => {
-        if (!Array.isArray(key) || key.length !== 2 || key[0] !== gameId) return null;
-        const saveKey = key[1];
-        if (typeof saveKey !== 'string') return null;
-        const value = await storage.get<unknown>('saves', key);
-        return [saveKey, value] as const;
-      }),
+          cheats?.beginFrame();
+          debug.tick();
+          instance?.update((1 / 60) * debug.timeScale);
+        },
+        render(alpha) {
+          instance?.render(alpha);
+        },
+      },
+      {
+        requestFrame: deps.requestFrame,
+        cancelFrame: deps.cancelFrame,
+        onError(error) {
+          void session.stop().catch(() => {});
+          throw error;
+        },
+      },
     );
-    for (const entry of entries) {
-      if (entry && entry[1] !== undefined) saves.set(entry[0], entry[1]);
-    }
+    loop = gameLoop;
+
+    unsubscribeLifecycle = bridge.onLifecycle((event) => {
+      if (event === 'pause') {
+        gameLoop.paused = true;
+        instance?.pause?.();
+        void saves?.flush().catch(() => {});
+        void audio.suspend();
+        return;
+      }
+      gameLoop.paused = false;
+      instance?.resume?.();
+    });
+
+    bridge.keepAwake(true);
+    gameLoop.start();
   }
-
-  const storageApi: StorageApi = {
-    get<T>(key: string): T | undefined {
-      return saves.get(key) as T | undefined;
-    },
-    set(key, value) {
-      saves.set(key, value);
-      dirty.add(key);
-      scheduleFlush();
-    },
-    delete(key) {
-      saves.delete(key);
-      dirty.add(key);
-      scheduleFlush();
-    },
-  };
-
-  const assets = createAssetLoader((path) => options?.resolveAsset(path) ?? '', audio);
-  let options: SessionStartOptions | null = null;
-
   const session: Session = {
     get instance() {
       return instance;
@@ -224,18 +185,17 @@ export function createSession(deps: SessionDeps): Session {
       return running;
     },
     get cheats() {
-      return declaredCheats;
-    },
-    setCheat(id, enabled) {
-      applyCheat(id, enabled);
+      return cheats?.declared ?? [];
     },
 
-    async start(startOptions) {
+    async start(options) {
       if (running) return;
-      options = startOptions;
       running = true;
 
-      await loadSaves();
+      saves = createSaveStore(storage, gameId);
+      await saves.load();
+
+      cheats = createCheatStore(storage, gameId, await loadCheatState(storage, gameId));
 
       const gameInput = createInput({
         sources: bridge.inputSources(),
@@ -257,173 +217,40 @@ export function createSession(deps: SessionDeps): Session {
         pointer: gameInput.pointer(),
       };
 
-      // 初始指针形态由游戏清单声明；缺省视为需要指针（小游戏更像"网页"）。
-      display.setPointerMode(startOptions.manifest.pointer ?? 'visible');
+      // 初始指针形态由游戏清单声明；缺省视为需要指针。
+      display.setPointerMode(options.manifest.pointer ?? 'visible');
 
-      const audioApi: AudioApi = { ctx: audio.ctx, music: audio.music, sfx: audio.sfx };
-      const platform: PlatformInfo = {
-        shell: bridge.kind,
+      const ctx = buildContext({
+        display,
+        audio,
+        saves,
+        cheats,
+        inputView,
+        debug: debug.api,
+        bridge,
         sdkVersion: deps.sdkVersion,
-        locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
-      };
-
-      // 金手指：游戏声明、平台持有开关。状态按 [gameId, cheatId] 持久化。
-      savedCheatValues = await loadCheatState(gameId);
-      declaredCheats.length = 0;
-      declaredCheatIds.clear();
-      cheatState = new Map<string, boolean>();
-      previousCheatState.clear();
-      justEnabledIds.clear();
-      cheatStateRef.current = cheatState;
-
-      const cheatsApi: CheatsApi = {
-        declare(definition) {
-          if (declaredCheatIds.has(definition.id)) {
-            throw new Error(`金手指 id 重复：${definition.id}`);
-          }
-          declaredCheatIds.add(definition.id);
-          declaredCheats.push(definition);
-
-          // 声明时才把"已保存值 / 默认值"合并进开关表：游戏在 create() 里才声明。
-          const resolved = resolveCheats([definition], savedCheatValues);
-          const enabled = resolved.get(definition.id) === true;
-          cheatState.set(definition.id, enabled);
-          previousCheatState.set(definition.id, enabled);
-
-          // 默认开启也要落盘，否则下次读回来就成了"没设置过"。
-          if (definition.defaultEnabled === true && savedCheatValues[definition.id] === undefined) {
-            dirtyCheats.add(definition.id);
-            scheduleFlushCheats();
-          }
-        },
-        enabled: (id) => cheatState.get(id) === true,
-        justEnabled: (id) => justEnabledIds.has(id),
-        get all() {
-          return declaredCheats;
-        },
-      };
-
-      // 调试口子：关闭时所有方法都是空操作。
-      const debugEnabled = deps.debug?.enabled === true;
-      const debugTimeScale = clampTimeScale(deps.debug?.timeScale ?? 1);
-      const frameCallbacks = new Set<(frame: number) => void>();
-      let frameCount = 0;
-      let manualPause = false;
-      let pendingSteps = 0;
-
-      const debugApi: DebugApi = {
-        enabled: debugEnabled,
-        seed: deps.debug?.seed ?? null,
-        timeScale: debugTimeScale,
-        onFrame(callback) {
-          if (!debugEnabled) return () => {};
-          frameCallbacks.add(callback);
-          return () => frameCallbacks.delete(callback);
-        },
-        stepFrames(count) {
-          if (!debugEnabled) return;
-          manualPause = true;
-          pendingSteps += Math.max(0, Math.floor(count));
-        },
-        get paused() {
-          return manualPause;
-        },
-        resume() {
-          manualPause = false;
-          pendingSteps = 0;
-        },
-      };
-
-      const ctx: GameContext = {
-        ctx2d: display.ctx,
-        width: display.width,
-        height: display.height,
-        input: inputView,
-        assets,
-        audio: audioApi,
-        storage: storageApi,
-        platform,
-        cheats: cheatsApi,
-        debug: debugApi,
-        exit: () => startOptions.onExit(),
-        rumble(strong, weak, ms) {
-          bridge.rumble?.(0, strong, weak, ms);
-        },
-        setPointerMode(mode) {
-          display.setPointerMode(mode);
-        },
-      };
-
-      instance = await startOptions.create(ctx);
-
-      const gameLoop = createLoop(
-        {
-          update() {
-            gameInput.sample();
-
-            // 调试：手动步进模式下，只有待处理的步数才真正跑 update。
-            if (manualPause) {
-              if (pendingSteps <= 0) return;
-              pendingSteps -= 1;
-            }
-
-            if (gameInput.systemMenuRequested()) {
-              if (loop) loop.paused = true;
-              instance?.pause?.();
-              startOptions.onSystemMenu?.();
-              return;
-            }
-
-            // 金手指开关可能在两帧之间被改（设置页或调试面板），
-            // 每帧算一次 justEnabled，游戏就能做"立刻生效"的一次性处理。
-            justEnabledIds.clear();
-            for (const [id, enabled] of cheatState) {
-              if (enabled && previousCheatState.get(id) !== true) justEnabledIds.add(id);
-              previousCheatState.set(id, enabled);
-            }
-
-            frameCount += 1;
-            if (debugEnabled) {
-              for (const callback of frameCallbacks) callback(frameCount);
-            }
-
-            instance?.update((1 / 60) * debugTimeScale);
-          },
-          render(alpha) {
-            instance?.render(alpha);
-          },
-        },
-        {
-          requestFrame: deps.requestFrame,
-          cancelFrame: deps.cancelFrame,
-          onError(error) {
-            void session.stop().catch(() => {});
-            throw error;
-          },
-        },
-      );
-      loop = gameLoop;
-
-      unsubscribeLifecycle = bridge.onLifecycle((event) => {
-        if (event === 'pause') {
-          gameLoop.paused = true;
-          instance?.pause?.();
-          void flush().catch(() => {});
-          void audio.suspend();
-        } else {
-          gameLoop.paused = false;
-          instance?.resume?.();
-        }
+        resolveAsset: options.resolveAsset,
+        onExit: options.onExit,
       });
 
-      bridge.keepAwake(true);
-      gameLoop.start();
+      instance = await options.create(ctx);
+      startLoop(gameInput, options);
     },
 
     resume() {
       if (!running) return;
       if (loop) loop.paused = false;
       instance?.resume?.();
+    },
+
+    flushNow() {
+      if (!running) return;
+      saves?.flushNow();
+      cheats?.flushNow();
+    },
+
+    setCheat(id, enabled) {
+      cheats?.set(id, enabled);
     },
 
     async stop() {
@@ -436,17 +263,9 @@ export function createSession(deps: SessionDeps): Session {
       unsubscribeLifecycle?.();
       unsubscribeLifecycle = null;
 
-      if (saveTimer !== null) {
-        clearTimeout(saveTimer);
-        saveTimer = null;
-      }
-      if (cheatTimer !== null) {
-        clearTimeout(cheatTimer);
-        cheatTimer = null;
-      }
       // 退出必须立刻落盘，不能等节流窗口。
-      await flush().catch(() => {});
-      await flushCheats().catch(() => {});
+      await saves?.flush().catch(() => {});
+      await cheats?.flush().catch(() => {});
 
       instance?.dispose?.();
       instance = null;
@@ -455,6 +274,9 @@ export function createSession(deps: SessionDeps): Session {
         for (const source of bridge.inputSources()) source.stop();
         input = null;
       }
+
+      saves?.reset();
+      cheats?.reset();
 
       bridge.keepAwake(false);
       void audio.suspend();

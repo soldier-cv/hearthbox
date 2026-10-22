@@ -29,6 +29,7 @@ export interface GamepadSourceConfig {
 
 /**
  * Windows / PC 的手柄输入源。
+ *
  * 只在安全上下文可用（见 decisions.md D3）；拿不到手柄时不报错，connected=false。
  */
 export function createGamepadSource(config: GamepadSourceConfig = {}): InputSource {
@@ -51,21 +52,8 @@ export function createGamepadSource(config: GamepadSourceConfig = {}): InputSour
       running = false;
     },
     drain(target: RawInputTarget) {
-      const raw: RawPadState = target.pad;
-      if (!running) {
-        raw.connected = false;
-        return;
-      }
-
-      const pads = getGamepads();
-      let pad: Gamepad | null = null;
-      for (let i = 0; i < pads.length; i += 1) {
-        const candidate = pads[i];
-        if (candidate && candidate.connected) {
-          pad = candidate;
-          break;
-        }
-      }
+      const raw = target.pad;
+      const pad = running ? findPad(getGamepads()) : null;
 
       if (!pad) {
         raw.connected = false;
@@ -73,38 +61,51 @@ export function createGamepadSource(config: GamepadSourceConfig = {}): InputSour
         return;
       }
 
-      raw.connected = true;
-      raw.slot = slot;
-      raw.deviceKey = `${pad.id}|${pad.mapping ?? ''}`;
-      raw.lx = pad.axes[0] ?? 0;
-      raw.ly = pad.axes[1] ?? 0;
-      raw.rx = pad.axes[2] ?? 0;
-      raw.ry = pad.axes[3] ?? 0;
-      raw.lt = pad.buttons[6]?.value ?? 0;
-      raw.rt = pad.buttons[7]?.value ?? 0;
-
-      let mask = 0;
-      for (let i = 0; i < STANDARD_BUTTONS.length; i += 1) {
-        const entry = STANDARD_BUTTONS[i]!;
-        const button = pad.buttons[entry[1]];
-        if (button && (button.pressed || button.value > 0.5)) {
-          const bit = bitOf(entry[0] as never);
-          if (bit >= 0) mask |= 1 << bit;
-        }
-      }
-
-      raw.buttons = mask;
-      raw.hatX = axisFromMask(mask, 'left', 'right');
-      raw.hatY = axisFromMask(mask, 'up', 'down');
-
-      // 本帧出现过的按下：包含"上帧按住、本帧松开"的抖动路径。
+      const mask = buttonsOf(pad);
+      writePad(raw, pad, slot, mask);
+      // 本帧出现过的按下：含"上帧按住、本帧松开"的抖动路径。
       raw.touches = mask | previousButtons;
       previousButtons = mask;
     },
   };
 }
 
-function axisFromMask(mask: number, negative: 'left' | 'up', positive: 'right' | 'down'): number {
+/** 取第一个已连接的手柄。没有时返回 null。 */
+function findPad(pads: ArrayLike<Gamepad | null>): Gamepad | null {
+  for (let i = 0; i < pads.length; i += 1) {
+    const candidate = pads[i];
+    if (candidate && candidate.connected) return candidate;
+  }
+  return null;
+}
+
+function writePad(raw: RawPadState, pad: Gamepad, slot: number, mask: number): void {
+  raw.connected = true;
+  raw.slot = slot;
+  raw.deviceKey = `${pad.id}|${pad.mapping ?? ''}`;
+  raw.lx = pad.axes[0] ?? 0;
+  raw.ly = pad.axes[1] ?? 0;
+  raw.rx = pad.axes[2] ?? 0;
+  raw.ry = pad.axes[3] ?? 0;
+  raw.lt = pad.buttons[6]?.value ?? 0;
+  raw.rt = pad.buttons[7]?.value ?? 0;
+  raw.buttons = mask;
+  raw.hatX = axisOf(mask, 'left', 'right');
+  raw.hatY = axisOf(mask, 'up', 'down');
+}
+
+function buttonsOf(pad: Gamepad): number {
+  let mask = 0;
+  for (const [button, index] of STANDARD_BUTTONS) {
+    const state = pad.buttons[index];
+    if (!state || (!state.pressed && state.value <= 0.5)) continue;
+    const bit = bitOf(button as never);
+    if (bit >= 0) mask |= 1 << bit;
+  }
+  return mask;
+}
+
+function axisOf(mask: number, negative: 'left' | 'up', positive: 'right' | 'down'): number {
   const neg = bitOf(negative);
   const pos = bitOf(positive);
   return ((mask & (1 << pos)) !== 0 ? 1 : 0) - ((mask & (1 << neg)) !== 0 ? 1 : 0);

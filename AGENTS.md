@@ -68,16 +68,19 @@ pnpm exec playwright test   # 端到端（会自己起 dev server）
 
 ## 游戏怎么和这套对接
 
-游戏不进本仓库（D12）。每个游戏一个独立仓库，依赖 npm 上的 `@hearthbox/sdk`。本仓库只留 `fixtures/` 做平台自测。
+游戏不进本仓库（D12）。每个游戏是**工作区根目录下的兄弟目录**，不是 `fixtures/` 里的子目录：
 
-- 新游戏用 `hbx create`（M2 才有）。M2 之前照 `fixtures/inputs` 的结构手写：`package.json` + `game.json` + `src/main.ts` + `vite.config.ts`，`pnpm fixtures` 会自动把它同步进货架。
-- 入口是 `defineGame()` 的默认导出。生命周期只有 `create` / `update` / `render` / `pause` / `resume` / `dispose`。
-- 平台能力只通过 `ctx` 拿：`input`（三层）、`storage`、`audio`、`assets`、`cheats`、`debug`、`ctx2d`、`setPointerMode`、`exit`、`rumble`。
-- 游戏仓库由 `hbx create` 生成的模板自带构建配置；手写的话必须让构建产物零裸导入、target `chrome87`。
+```
+hearthbox-projects/
+  hearthbox/        平台（本仓库）
+  my-game/          游戏：game.json + dist/game.js
+```
 
-详细的接入步骤见技能包：`.agents/skills/hearthbox-game/SKILL.md`。
+开发时 `pnpm dev` 会自动扫描工作区根下的所有含 `game.json` 且已 build 的目录，挂到货架上。游戏文件不复制进平台仓库，也不改平台源码。
 
-游戏作者不克隆本仓库。平台升级时，SDK 主版本内只加不改。
+M2 之后有 `hbx create` 生成标准仓库、`hbx dev` 起独立开发服务器，那时不必放在同一父目录下。
+
+新增游戏的完整步骤见 `docs/local-dev.md`。
 
 货架内容（`catalog.json`、签名、`.hbx`）是发布产物，放对象存储，不进任何仓库。签名私钥只留在发布机器上。
 
@@ -105,6 +108,65 @@ pnpm exec playwright test   # 端到端（会自己起 dev server）
 - 不要调用 `requestAnimationFrame`、用 `setTimeout` 驱动逻辑、读 `navigator.getGamepads()`、直接写 IndexedDB、把音频接到 `ctx.destination`。
 - 不要把多文件模块当入口。blob URL 下解析不了相对 import。
 - 不要在 `update` / `render` 里分配可以避免的对象，也不要在 `render` 里同步解码图片。
+
+## 代码规范
+
+写这个仓库的代码时按下面四条执行。它们不是风格偏好，是会直接影响可维护性的约束。
+
+### 1. 代码不乱
+
+- 一个文件一个主要职责。文件超过 300 行就该检查是否有第二件事混进来。
+- 依赖顺序固定：类型 → 常量 → 主要导出 → 内部辅助。辅助函数放文件末尾。
+- 不在文件中间随手定义常量或全局状态。
+- 编辑器自动格式化（Prettier），不许手工对齐。
+- 顺序即结构：读一个文件应该能从上到下读懂它做什么。
+
+### 2. 不做非必要的提取
+
+**提取只有一个理由：这段逻辑需要被独立理解、独立测试，或被两处以上复用。**
+
+不要这样：
+
+```ts
+// 反面教材：为了"看起来短"把一行拆成函数
+function addOne(n: number): number {
+  return n + 1;
+}
+```
+
+也不要为了过 lint 的行数限制，把一个连贯的组装函数切成 `buildA()` / `buildB()` / `buildC()` 然后拼回去。那种拆法让读者必须来回跳。
+
+该提取的信号：
+
+- 同一个概念出现两次以上。
+- 这段逻辑有自己的状态和生命周期（如 `save-store.ts`、`cheat-store.ts`）。
+- 这段逻辑可以脱离上下文单独测试（如 `deadzone.ts`）。
+
+`max-lines-per-function` 上限是 150 行。**它是护栏，不是目标。**
+
+### 3. 注释和代码一致
+
+- 注释解释**为什么**，不解释代码在做什么。`// 加一` 这种注释删掉。
+- 改了代码就改注释。过时的注释比没有注释更糟。
+- 不写"TODO: 以后实现"——要么现在做，要么记进 `docs/roadmap.md`。
+- 删掉注释掉的代码。版本控制在，不需要留着。
+- 有陷阱的地方必须写清：为什么不能用更直观的写法。比如 `storage.ts` 里为什么必须 `abort()`。
+
+### 4. 方法名不能太长
+
+上限 24 个字符，目标在 12 个以内。
+
+| 别扭                                   | 好                |
+| -------------------------------------- | ----------------- |
+| `handlePointerDownEventAndUpdateState` | `onPointerDown`   |
+| `getCurrentKeyboardHeldCodesList`      | `heldCodes`       |
+| `createAndInitializeSaveStoreForGame`  | `createSaveStore` |
+| `isPointerCurrentlyInsideCanvasBounds` | `inside`          |
+
+- 名字里不要带类型（`xxxList`、`xxxMap`、`xxxString`）。
+- 不要用 `handle` / `process` / `do` 开头，直接说做了什么。
+- 布尔用 `is` / `has` / `can` 开头，读起来是句子：`isRunning`、`hasFocus`。
+- 名字太长通常说明这个函数做了两件事。
 
 ## 平台侧规范
 
