@@ -35,6 +35,7 @@ pnpm typecheck  # 全包类型检查
 | [input.md](docs/input.md)                       | 手柄、键盘、指针三层输入与映射      |
 | [pointer.md](docs/pointer.md)                   | 鼠标与触控：坐标换算、指针外观      |
 | [cheats.md](docs/cheats.md)                     | 金手指与调试口子                    |
+| [local-dev.md](docs/local-dev.md)               | 在本机跑自己的游戏                  |
 | [game-sdk.md](docs/game-sdk.md)                 | 游戏开发契约：生命周期、ctx API     |
 | [package-format.md](docs/package-format.md)     | 游戏包、catalog、签名、安装流程     |
 | [deployment.md](docs/deployment.md)             | 开发环境、ZeroTier、公网 HTTPS 部署 |

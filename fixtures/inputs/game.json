@@ -1,6 +1,7 @@
 {
   "id": "hearthbox.inputs",
   "name": "输入夹具",
+  "summary": "鼠标点方块换色、点空白移动、滚轮改大小；键盘与手柄同时可用。",
   "version": "0.1.0",
   "sdk": "^0.1.0",
   "entry": "game.js",

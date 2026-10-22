@@ -17,3 +17,4 @@ playwright-report/
 
 # 夹具产物：由 pnpm dev / pnpm fixtures 生成
 apps/shell/public/fixtures/*/
+apps/shell/public/fixtures/index.json

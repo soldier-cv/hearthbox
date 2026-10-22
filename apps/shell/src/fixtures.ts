@@ -1,8 +1,9 @@
 /**
- * 开发期的本地夹具清单。
+ * 开发期货架：从 /fixtures/index.json 读清单。
  *
- * M2 起这里换成 catalog 拉取 + installer；在那之前货架列出仓库里的夹具，
- * 让平台的每条输入路径都能在浏览器里真的跑一遍。
+ * 为什么不在代码里写死：写死意味着每加一个游戏都要改平台源码、重启 dev server，
+ * 而游戏本应独立于平台。M2 的 catalog 走的是同一个思路——货架内容是可替换的数据，
+ * 不是编译进壳的常量。这里只是把数据源换成开发目录下的一份 JSON。
  */
 export interface ShelfEntry {
   id: string;
@@ -18,26 +19,19 @@ export interface ShelfEntry {
   base: string;
 }
 
-export const localFixtures: ShelfEntry[] = [
-  {
-    id: 'hearthbox.contract',
-    name: '契约夹具',
-    summary: '一个方块，手柄或方向键移动，南键变色，位置写进存档。',
-    inputs: ['pad', 'keyboard'],
-    entry: 'game.js',
-    manifest: 'game.json',
-    base: '/fixtures/contract',
-  },
-  {
-    id: 'hearthbox.inputs',
-    name: '输入夹具',
-    summary: '鼠标点方块换色、点空白移动、滚轮改大小；键盘与手柄同时可用。',
-    inputs: ['pad', 'keyboard', 'pointer'],
-    entry: 'game.js',
-    manifest: 'game.json',
-    base: '/fixtures/inputs',
-  },
-];
+interface FixtureIndex {
+  fixtures: ShelfEntry[];
+}
+
+export async function loadFixtures(): Promise<ShelfEntry[]> {
+  const response = await fetch('/fixtures/index.json', { cache: 'no-store' });
+  if (!response.ok) {
+    if (response.status === 404) return [];
+    throw new Error(`读取货架清单失败：${response.status}`);
+  }
+  const index = (await response.json()) as FixtureIndex;
+  return Array.isArray(index.fixtures) ? index.fixtures : [];
+}
 
 /** 把输入种类显示成一句人话。 */
 export function describeInputs(inputs: ShelfEntry['inputs']): string {

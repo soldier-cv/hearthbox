@@ -25,6 +25,10 @@ export default defineGame({
   id: 'hearthbox.inputs',
 
   async create(ctx: GameContext): Promise<GameInstance> {
+    // 真实加载一张图片素材：验证 ctx.assets.image() 这条链路，
+    // 而不只是"代码写了但从来没跑过"。加载失败会直接抛进崩溃页。
+    const tile = await ctx.assets.image('tile.png');
+
     const saved = ctx.storage.get<State>('state');
     const state: State = {
       x: saved?.x ?? ctx.width / 2,
@@ -147,6 +151,10 @@ export default defineGame({
         for (let i = 0; i < hits; i += 1) {
           g.fillRect(6 + i * 5, ctx.height - 10, 3, 3);
         }
+
+        // 用加载好的素材在右上角铺一块 16×16 的棋盘，证明 assets 链路是通的。
+        // 素材刻意做成低饱和灰：测试靠"饱和色"扫描方块，素材不该干扰它。
+        g.drawImage(tile, ctx.width - 20, 4, 16, 16);
       },
 
       dispose() {

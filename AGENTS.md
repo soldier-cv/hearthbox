@@ -127,18 +127,19 @@ pnpm exec playwright test   # 端到端（会自己起 dev server）
 
 ## 文档索引
 
-| 文档 | 何时读 |
-|---|---|
-| `docs/architecture.md` | 分层、数据流、信任模型 |
-| `docs/decisions.md` | 为什么这样选；改决策在文末追加 |
-| `docs/roadmap.md` | 里程碑与退出标准，当前进度 |
-| `docs/repository.md` | 目录、依赖方向、工具链版本 |
-| `docs/runtime-api.md` | 运行时接口，实现时按它写 |
-| `docs/game-sdk.md` | 游戏契约：生命周期、ctx API |
+| 文档                       | 何时读                         |
+| -------------------------- | ------------------------------ |
+| `docs/architecture.md`     | 分层、数据流、信任模型         |
+| `docs/decisions.md`        | 为什么这样选；改决策在文末追加 |
+| `docs/roadmap.md`          | 里程碑与退出标准，当前进度     |
+| `docs/local-dev.md`        | 在本机把自己的游戏跑起来       |
+| `docs/repository.md`       | 目录、依赖方向、工具链版本     |
+| `docs/runtime-api.md`      | 运行时接口，实现时按它写       |
+| `docs/game-sdk.md`         | 游戏契约：生命周期、ctx API    |
 | `docs/game-conformance.md` | 类型、脚手架、打包校验三道约束 |
-| `docs/package-format.md` | `.hbx`、catalog、签名、安装 |
-| `docs/input.md` | 三层输入、映射、M0 实测清单 |
-| `docs/pointer.md` | 鼠标与触控：坐标换算、指针外观 |
-| `docs/cheats.md` | 金手指与调试口子 |
-| `docs/compatibility.md` | 基线、性能预算、依赖标准 |
-| `docs/deployment.md` | 开发环境与公网部署 |
+| `docs/package-format.md`   | `.hbx`、catalog、签名、安装    |
+| `docs/input.md`            | 三层输入、映射、M0 实测清单    |
+| `docs/pointer.md`          | 鼠标与触控：坐标换算、指针外观 |
+| `docs/cheats.md`           | 金手指与调试口子               |
+| `docs/compatibility.md`    | 基线、性能预算、依赖标准       |
+| `docs/deployment.md`       | 开发环境与公网部署             |

@@ -11,7 +11,7 @@
     "chrome >= 87"
   ],
   "scripts": {
-    "dev": "node scripts/link-fixtures.mjs && pnpm --filter @hearthbox/shell dev",
+    "dev": "node scripts/dev-server.mjs",
     "build": "pnpm -r --filter=!@hearthbox/hbx build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",

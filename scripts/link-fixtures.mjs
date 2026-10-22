@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * 把 fixtures/* 的构建产物同步到壳的 public/fixtures/。
+ * 把 fixtures/* 的构建产物同步到壳的 public/fixtures/，并生成货架清单。
  *
- * 为什么不在 Vite 里做别名：宿主页通过 fetch 取单文件 ESM 再建 blob URL，
- * 和 M2 从 IndexedDB 取包文件的路径完全同构。用真实静态文件能保证
- * "dev 能跑" 与 "打包后能跑" 走的是同一条代码路径。
+ * 货架清单从每个包的 game.json 生成，不从平台源码里写死：
+ * 加一个游戏只需要新建目录，平台不需要改代码。
  */
-import { cp, mkdir, readdir, rm } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +24,8 @@ if (fixtures.length === 0) {
 
 await rm(targetRoot, { recursive: true, force: true });
 
+const shelf = [];
+
 for (const name of fixtures) {
   const source = join(fixturesDir, name);
   const gameJs = join(source, 'dist/game.js');
@@ -32,6 +33,10 @@ for (const name of fixtures) {
     console.error(`[link-fixtures] 缺少 ${gameJs}，先构建 ${name}`);
     process.exit(1);
   }
+
+  // 必须指定 utf8：不指定时 readFile 返回 Buffer，中文会变成乱码，
+  // JSON.parse 随之失败或字段丢失。
+  const manifest = JSON.parse(await readFile(join(source, 'game.json'), 'utf8'));
 
   const target = join(targetRoot, name);
   await mkdir(join(target, 'assets'), { recursive: true });
@@ -42,6 +47,23 @@ for (const name of fixtures) {
   if (existsSync(join(source, 'assets'))) {
     await cp(join(source, 'assets'), join(target, 'assets'), { recursive: true });
   }
+
+  shelf.push({
+    id: manifest.id,
+    name: manifest.name,
+    // game.json 没有 summary 字段时退回一句占位，而不是让货架空着。
+    summary: typeof manifest.summary === 'string' ? manifest.summary : manifest.id,
+    inputs: Array.isArray(manifest.input) ? manifest.input : ['pad'],
+    entry: 'game.js',
+    manifest: 'game.json',
+    base: `/fixtures/${name}`,
+  });
 }
 
-console.log(`[link-fixtures] 已同步 ${fixtures.join(', ')} 到 apps/shell/public/fixtures/`);
+await writeFile(
+  join(targetRoot, 'index.json'),
+  `${JSON.stringify({ fixtures: shelf }, null, 2)}\n`,
+  'utf8',
+);
+
+console.log(`[link-fixtures] 已同步 ${fixtures.join(', ')}，货架共 ${shelf.length} 个条目`);

@@ -1,6 +1,6 @@
 import { render, type FunctionComponent } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
-import { localFixtures, describeInputs, type ShelfEntry } from './fixtures.js';
+import { describeInputs, loadFixtures, type ShelfEntry } from './fixtures.js';
 
 /**
  * 货架的最小版本（M1）。
@@ -50,8 +50,17 @@ const GameCard: FunctionComponent<{
 );
 
 const Shelf: FunctionComponent = () => {
+  const [entries, setEntries] = useState<ShelfEntry[]>([]);
   const [focused, setFocused] = useState(0);
-  const entries = localFixtures;
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void loadFixtures()
+      .then((loaded) => setEntries(loaded))
+      .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => setLoading(false));
+  }, []);
 
   const move = useCallback(
     (delta: number) => {
@@ -83,12 +92,19 @@ const Shelf: FunctionComponent = () => {
     <main class="shelf">
       <h1>炉边</h1>
       <p class="subtitle">手柄优先。Enter 或 A 键确认。</p>
-      {entries.length === 0 ? (
+
+      {error !== null && <p class="empty">读取货架失败：{error}</p>}
+
+      {loading && <p class="empty">正在读取货架…</p>}
+
+      {!loading && error === null && entries.length === 0 && (
         <p class="empty">
-          还没有可玩的游戏。开发时先运行 <code>pnpm dev</code>
-          ，夹具会自动出现在这里；安装正式游戏要等 M2。
+          还没有可玩的游戏。把你的游戏放进 <code>fixtures/&lt;名字&gt;/</code>，然后运行{' '}
+          <code>pnpm fixtures</code> 重建并同步。
         </p>
-      ) : (
+      )}
+
+      {entries.length > 0 && (
         <ul class="game-list">
           {entries.map((entry, index) => (
             <GameCard
