@@ -11,7 +11,7 @@ M0 的真机实测（见 `docs/roadmap.md`）需要电视和手柄，**不阻塞
 ## 1. 初始化仓库工具链
 
 - 按 `docs/repository.md` 第 4 节选定版本并精确锁定。
-- 建立 pnpm workspace，创建 `apps/shell`、`packages/runtime`、`packages/sdk`、`fixtures/contract`。
+- 建立 pnpm workspace，创建 `apps/shell`、`packages/runtime`、`packages/sdk`、`demo`。
 - 配置 TypeScript、ESLint、Prettier。
 - 根脚本 `dev`、`build`、`typecheck`、`lint`、`test` 都能跑。
 - 把选定的版本号回写到 `docs/repository.md` 的表里。
@@ -35,14 +35,14 @@ M0 的真机实测（见 `docs/roadmap.md`）需要电视和手柄，**不阻塞
 
 只做两页，不做货架 UI（那是 M3）：
 
-- `index.html`：列出本地夹具，手柄或键盘确认后进入。
+- `index.html`：列出本地演示游戏，手柄或键盘确认后进入。
 - `play.html`：调用 `Session.start()`，显示崩溃页和"返回"。
 
 能用键盘玩即可，界面不做美化。
 
-## 5. 契约夹具
+## 5. 演示游戏
 
-`fixtures/contract` 实现一个最小游戏：摇杆（或键盘）移动一个方块，按键改变颜色，位置写入存档。
+`demo` 实现一个最小游戏：摇杆（或键盘）移动一个方块，按键改变颜色，位置写入存档。
 
 验收：刷新页面后方块还在原来的位置。
 

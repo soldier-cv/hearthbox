@@ -16,5 +16,6 @@ test-results/
 playwright-report/
 
 # 夹具产物：由 pnpm dev / pnpm fixtures 生成
-apps/shell/public/fixtures/*/
-apps/shell/public/fixtures/index.json
+apps/shell/public/demo/game.js
+apps/shell/public/demo/game.json
+apps/shell/public/demo/assets/

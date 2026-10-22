@@ -15,8 +15,10 @@ hearthbox/
     catalog/              # M2 才创建：schema、校验、签名
   native/
     android/              # M4 才创建：Capacitor 工程与原生输入插件
-  fixtures/
-    contract/             # 最小夹具，只服务平台 CI
+  demo/                   # 演示游戏：把平台每项能力都用一遍
+    src/main.ts
+    game.json
+    assets/
   tools/
     hbx/                  # M2 才创建：CLI
   docs/
@@ -32,7 +34,7 @@ apps/shell ──► packages/runtime ──► packages/sdk
                      └──► packages/catalog     （M2 起）
 
 tools/hbx ──► packages/catalog ──► packages/sdk
-fixtures/contract ──► packages/sdk
+demo ──► packages/sdk
 native/android ──► 通过 HostBridge 与 apps/shell 交互，不直接依赖 runtime 内部
 ```
 

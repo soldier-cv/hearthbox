@@ -12,7 +12,7 @@ Hearthbox 是一个**手柄优先**的自制游戏平台：一个"主机壳" + �
 
 ## 状态
 
-M1（运行时内核 + SDK v0）已完成：契约夹具能在 PC 浏览器里用手柄或键盘操作，存档刷新后保留。
+M1（运行时内核 + SDK v0）已完成：演示游戏能在 PC 浏览器里用手柄、键盘或鼠标操作，存档刷新后保留。
 M0 的真机实测与 M2 之后的里程碑见 [docs/roadmap.md](docs/roadmap.md)。
 
 ```bash
@@ -23,7 +23,7 @@ pnpm lint       # ESLint + Prettier
 pnpm typecheck  # 全包类型检查
 ```
 
-`pnpm dev` 会先构建契约夹具再起 Vite。打开页面后按 Enter 或手柄键开始。
+`pnpm dev` 会先构建演示游戏再起 Vite。打开页面后按 Enter 或手柄键开始。
 手柄的实际上报值可在 `/pads.html` 查看，用于填写 `docs/m0-findings.md`。
 
 ## 文档
@@ -58,8 +58,7 @@ hearthbox/
     catalog/          # catalog 与包格式的 schema、校验、签名
   native/
     android/          # Capacitor Android TV 壳 + 原生输入插件
-  fixtures/
-    contract/         # 最小契约夹具，只用于平台 CI 自测，不是游戏
+  demo/               # 演示游戏：把平台每项能力都用一遍
   tools/
     hbx/              # CLI：pack / sign / publish / keygen
   docs/

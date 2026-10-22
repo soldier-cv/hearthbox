@@ -13,7 +13,7 @@ import { mountOptionPanel } from './cheat-panel.js';
 /**
  * 游戏宿主页。
  *
- * M1 只从夹具目录加载（dev server 直接提供 game.js）。M2 起改成从 IndexedDB
+ * M1 只从演示游戏目录加载（dev server 直接提供 game.js）。M2 起改成从 IndexedDB
  * 读出 .hbx 的文件表、建 blob URL、再 import —— 这里的分界点是 resolveAsset
  * 与 loadModule 两个函数，它们已经按"文件从哪里来"抽象好了。
  */
@@ -31,11 +31,11 @@ if (!stage || !crash || !crashMessage || !gate || !backButton) {
 
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id') ?? '';
-const base = params.get('base') ?? '/fixtures/contract';
-const entryPath = params.get('entry') ?? 'game.js';
-const manifestPath = params.get('manifest') ?? 'game.json';
-const entryUrl = `${base}/${entryPath}`;
-const manifestUrl = `${base}/${manifestPath}`;
+// 游戏目录。入口固定是 game.js、清单固定是 game.json，
+// 不需要额外两个参数 —— 那些是包格式定死的东西。
+const base = params.get('base') ?? '/demo';
+const entryUrl = `${base}/game.js`;
+const manifestUrl = `${base}/game.json`;
 
 let session: ReturnType<typeof createSession> | null = null;
 /** 金手指面板的挂载点。 */

@@ -1,8 +1,8 @@
 {
-  "id": "hearthbox.inputs",
-  "name": "输入夹具",
-  "summary": "鼠标点方块换色、点空白移动、滚轮改大小；键盘与手柄同时可用。",
-  "version": "0.1.0",
+  "id": "hearthbox.demo",
+  "name": "演示游戏",
+  "summary": "平台能力全览：手柄/键盘/鼠标、存档、金手指、设置、成就、素材、随机。",
+  "version": "1.0.0",
   "sdk": "^0.1.0",
   "entry": "game.js",
   "display": { "width": 320, "height": 180, "pixelArt": true, "scale": "integer" },

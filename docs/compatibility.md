@@ -65,7 +65,7 @@
 | 层 | 工具 | 覆盖 |
 |---|---|---|
 | 单元 | Vitest + fake-indexeddb | 主循环步进、死区与边沿、semver/SDK 兼容判断、catalog 验签、安装事务与回滚 |
-| 端到端 | Playwright | 伪造 `InputSource` 驱动：浏览货架、从本地服务器安装 fixture 包、启动、退出、崩溃恢复 |
+| 端到端 | Playwright | 伪造 `InputSource` 驱动：浏览货架、从本地服务器安装 demo 包、启动、退出、崩溃恢复 |
 | 原生 | Kotlin 纯函数测试（无设备） | 按键/轴到 `Button` 的映射表 |
 | 真机 | 手工清单 | input.md 第 7 节的 M0 清单；每个里程碑结束时在参考盒子上复测一次帧率与内存 |
 

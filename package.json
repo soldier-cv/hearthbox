@@ -17,7 +17,7 @@
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "format": "prettier --write .",
-    "fixtures": "pnpm --filter @hearthbox/fixture-contract build && pnpm --filter @hearthbox/fixture-inputs build && node scripts/link-fixtures.mjs"
+    "demo": "pnpm --filter @hearthbox/demo build && node scripts/build-demo.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

@@ -6,11 +6,11 @@
 
 ## 现在处于什么阶段
 
-**M1 已完成**：运行时内核、SDK v0、货架页、宿主页都能在 PC 浏览器里跑。契约夹具与输入夹具都能玩，存档刷新后保留。
+**M1 已完成**：运行时内核、SDK v0、货架页、宿主页都能在 PC 浏览器里跑。demo 里的演示游戏能玩，存档刷新后保留。
 
 M0 的真机实测、M2 之后的里程碑都没做，见 `docs/roadmap.md`。不要在 M2 之前建 `packages/catalog`、`tools/hbx`、`native/android`。
 
-关键决策见 `docs/decisions.md`（D1–D18）。实现时最容易被忽略的三条：
+关键决策见 `docs/decisions.md`（D1–D20）。实现时最容易被忽略的三条：
 
 - **画布归平台**（D15）。`Display` 在 `attach` 时取得唯一的 2D 上下文，做好缩放、DPR 与 `imageSmoothingEnabled`。游戏拿到的是 `ctx.ctx2d`，不是可以自己再 `getContext` 的 `HTMLCanvasElement`。WebGL 以后作为可选字段加上。
 - **游戏包自包含**（D16）。`game.js` 不允许任何 `import` 语句，`@hearthbox/sdk` 也内联。包入口在 blob URL 下执行，裸说明符解析不了，而 import maps 需要 Chromium 89+。
@@ -30,14 +30,12 @@ hearthbox/
     catalog/          # schema、校验、签名（M2 才创建）
   native/
     android/          # Capacitor 工程与原生输入插件（M4 才创建）
-  fixtures/
-    contract/         # 最小契约夹具：移动、变色、存档。只给平台 CI，不是游戏
-    inputs/           # 输入夹具：鼠标点选、滚轮、键盘、金手指演示
+  demo/               # 演示游戏：把平台每项能力都用一遍，用来确认平台正常
   templates/
     game/             # 新游戏模板：可跑通的完整链路 + 四份流程文档
   tools/
     hbx/              # CLI：create / dev / pack / sign / publish（M2 才创建）
-  scripts/            # dev-server.mjs、link-fixtures.mjs
+  scripts/            # dev-server.mjs（起服务）、build-demo.mjs（构建演示游戏）
   docs/               # 架构、决策、契约。进度只改 docs/roadmap.md 的复选框
 ```
 
@@ -47,30 +45,30 @@ hearthbox/
 apps/shell → packages/runtime → packages/sdk
                     └→ packages/catalog      （M2 起）
 tools/hbx → packages/catalog → packages/sdk
-fixtures/* → packages/sdk
+demo → packages/sdk
 ```
 
 反向 import 禁止，包括类型导入。包之间只走 `package.json` 的 `exports`，不引用包内深层文件。`packages/sdk` 不得依赖本仓库的任何其他包。
 
-**夹具不是游戏**：`fixtures/` 下的两个包是平台自测用的，不进 npm、不发版。
+**demo 是演示游戏**：用来确认平台每项能力都正常，不发布到 npm，也不是给人长期玩的。
 
 ## 常用命令
 
 ```bash
 pnpm install
-pnpm dev        # 构建夹具 → 同步到壳 → 起 Vite（127.0.0.1:5199）
+pnpm dev        # 构建演示游戏 → 起服务（127.0.0.1:5199）
 pnpm test       # Vitest 单元测试
 pnpm typecheck  # 全包类型检查
 pnpm lint       # ESLint + Prettier
 pnpm build      # 构建全部包
-pnpm fixtures   # 只重建并同步夹具
+pnpm demo       # 只重建演示游戏
 
 pnpm exec playwright test   # 端到端（会自己起 dev server）
 ```
 
 ## 游戏怎么和这套对接
 
-游戏不进本仓库（D12）。每个游戏是**工作区根目录下的兄弟目录**，不是 `fixtures/` 里的子目录：
+游戏不进本仓库（D12）。每个游戏是**工作区根目录下的兄弟目录**，不是平台仓库里的子目录：
 
 ```
 hearthbox-projects/
