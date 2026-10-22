@@ -191,27 +191,60 @@ export interface Random {
 /**
  * 金手指声明。见 docs/cheats.md。
  *
- * 平台负责开关状态、持久化与未来的设置页；游戏只负责声明与读取。
+ * 两种形态：
+ * - `boolean`：开关（无敌、解锁全部）
+ * - `number`：有范围的数值（经验倍率 1–5、出怪速度 0.2–2）
+ *
+ * 声明 `number` 时**必须**给 `min`/`max`/`step`/`defaultValue`。平台据此
+ * 生成 UI、夹取越界值、对齐步进。不给范围就没有 UI 可生成，也无法防止
+ * 游戏读到 1e9 这种把平衡和存档都搞坏的值。
  */
-export interface CheatDefinition {
+export type CheatDefinition = BooleanCheat | NumberCheat;
+
+export interface CheatBase {
   /** 稳定 id，游戏内唯一，发布后不要改。 */
   id: string;
   /** 玩家看到的名字。 */
   name: string;
   description?: string;
-  /** 默认是否启用，缺省 false。 */
-  defaultEnabled?: boolean;
   /** 危险等级，缺省 `gameplay`。 */
   severity?: 'cosmetic' | 'gameplay' | 'destructive';
 }
 
+export interface BooleanCheat extends CheatBase {
+  kind?: 'boolean';
+  /** 默认是否启用，缺省 false。 */
+  defaultEnabled?: boolean;
+}
+
+export interface NumberCheat extends CheatBase {
+  kind: 'number';
+  /** 最小值。 */
+  min: number;
+  /** 最大值。 */
+  max: number;
+  /** 步进，决定 UI 每次加减多少；须能整除 (max - min)。 */
+  step: number;
+  /** 默认值，须落在 [min, max] 内且符合 step。 */
+  defaultValue: number;
+  /** 单位，仅用于显示，如 '×'、'%'、's'。 */
+  unit?: string;
+}
+
 export interface CheatsApi {
-  /** 声明一个金手指。重复 id 抛错。 */
+  /** 声明一个金手指。重复 id 抛错；number 型范围非法也抛错。 */
   declare(definition: CheatDefinition): void;
-  /** 是否启用。每帧调用，不分配。 */
+
+  /** 是否启用。boolean 型直接返回；number 型返回是否非默认值。 */
   enabled(id: string): boolean;
   /** 本帧内刚被切换为启用。用于"改完立即生效"的一次性逻辑。 */
   justEnabled(id: string): boolean;
+  /**
+   * 读数值。已夹在 [min, max] 并对齐到 step。
+   *
+   * 对 boolean 型 id 返回 0/1，不抛错 —— 把开关升级成数值时不用改调用点。
+   */
+  value(id: string): number;
   /** 全部已声明的金手指。 */
   readonly all: readonly CheatDefinition[];
 }

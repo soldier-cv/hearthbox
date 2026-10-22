@@ -52,6 +52,22 @@ export default defineGame({
       severity: 'gameplay',
     });
 
+    // 数值型金手指：移动速度倍率。演示"带范围的可调参数"。
+    ctx.cheats.declare({
+      id: 'move-speed',
+      name: '移动速度',
+      description: '方块移动速度倍率。',
+      kind: 'number',
+      min: 1,
+      max: 3,
+      step: 0.25,
+      defaultValue: 1,
+      unit: '×',
+    });
+
+    /** 当前生效的速度倍率。走金手指的数值型接口，已夹在范围内。 */
+    const speedScale = (): number => ctx.cheats.value('move-speed');
+
     let hits = 0;
     let pointerInsideBlock = false;
 
@@ -71,14 +87,16 @@ export default defineGame({
         const pointer = ctx.input.pointer;
 
         // 1) 手柄 / 方向键 / WASD：连续移动
-        state.x += pad.move.x * SPEED * dt;
-        state.y += pad.move.y * SPEED * dt;
+        // 速度经金手指的数值型接口，2× 时这里自动生效。
+        const speed = SPEED * speedScale();
+        state.x += pad.move.x * speed * dt;
+        state.y += pad.move.y * speed * dt;
 
         // 2) 完整键位：按住 Shift 走得更快（演示 keyboard.held 的用法）
         const fast = keyboard.held('ShiftLeft') || keyboard.held('ShiftRight');
         if (fast) {
-          state.x += pad.move.x * SPEED * dt;
-          state.y += pad.move.y * SPEED * dt;
+          state.x += pad.move.x * speed * dt;
+          state.y += pad.move.y * speed * dt;
         }
 
         // 3) 鼠标：左键点方块换色，点空白把方块挪到指针处

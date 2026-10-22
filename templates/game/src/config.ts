@@ -1,8 +1,11 @@
 /**
- * 所有数值集中在这里。
+ * 所有常量集中在这里。
  *
  * 规则：代码里不出现 magic number。改手感只改这个文件，不改逻辑。
- * 每一行都要能从 docs/systems.md 找到对应的说明。
+ *
+ * 与 `tuning.ts` 的分工：
+ * - `config.ts` 是**常量**（分辨率、颜色、体积），运行中不变
+ * - `tuning.ts` 是**可调量**（速度、经验、出怪），会被金手指或难度改
  */
 export const CONFIG = {
   /** 逻辑分辨率，必须与 game.json 的 display 一致。 */
@@ -10,7 +13,7 @@ export const CONFIG = {
   height: 180,
 
   player: {
-    /** 移动速度，逻辑像素/秒。 */
+    /** 基础移动速度，逻辑像素/秒。实际值经 tuning.moveSpeed 调整。 */
     speed: 90,
     /** 体积，正方形。 */
     size: 10,
@@ -24,6 +27,9 @@ export const CONFIG = {
 
   /** 目标数量，全部收集即胜利。 */
   targetCount: 5,
+
+  /** 每个目标给多少经验。升级门槛由 tuning.xpNeed 决定。 */
+  xpPerTarget: 4,
 
   colors: {
     background: '#0b0b0f',

@@ -57,6 +57,8 @@ export interface Session {
   stop(): Promise<void>;
   /** 关闭系统菜单后恢复游戏。 */
   resume(): void;
+  /** 打开系统菜单时暂停游戏（不停止循环，仍渲染）。 */
+  pause(): void;
   /**
    * 立刻发起存档写入。
    *
@@ -64,10 +66,24 @@ export interface Session {
    * 不调这个，玩家直接关标签页就可能丢进度。
    */
   flushNow(): void;
-  /** 切换金手指开关。设置页与金手指面板用它。 */
-  setCheat(id: string, enabled: boolean): void;
+  /**
+   * 切换金手指。boolean 型传 true/false，number 型传数值（平台会夹取）。
+   *
+   * 金手指面板与设置页用它。**写入只发生在平台侧**，游戏只读
+   * `ctx.cheats.enabled()` / `ctx.cheats.value()`，这样"谁拥有状态"
+   * 始终只有一处。
+   */
+  setCheat(id: string, value: boolean | number): void;
+  /** 读当前值。boolean 型返回 boolean，number 型返回 number。 */
+  getCheat(id: string): boolean | number | undefined;
   /** 当前已声明的金手指（游戏 create 之后才有内容）。 */
   readonly cheats: readonly CheatDefinition[];
+  /**
+   * 订阅金手指变化。面板打开时挂上，关闭时取消。
+   *
+   * 返回取消函数。回调在任意线程（微任务）里触发，面板要自己防抖重绘。
+   */
+  onCheatsChange(listener: () => void): () => void;
   /** 当前游戏实例，未启动时为 null。 */
   readonly instance: GameInstance | null;
   readonly running: boolean;
@@ -249,18 +265,23 @@ export function createSession(deps: SessionDeps): Session {
       instance?.resume?.();
     },
 
+    pause() {
+      if (!running) return;
+      if (loop) loop.paused = true;
+      instance?.pause?.();
+    },
+
     flushNow() {
       if (!running) return;
       saves?.flushNow();
       cheats?.flushNow();
     },
 
-    setCheat(id, enabled) {
-      cheats?.set(id, enabled);
-    },
+    setCheat: (id, value) => cheats?.set(id, value),
+    getCheat: (id) => cheats?.get(id),
+    onCheatsChange: (listener) => cheats?.subscribe(listener) ?? (() => {}),
 
-    async stop() {
-      if (!running) return;
+    async stop() {      if (!running) return;
       running = false;
 
       loop?.stop();

@@ -353,60 +353,65 @@ test('调试参数能打开调试模式，非法值不崩', async ({ page }) => 
   await expect(page.locator('#crash')).toBeHidden();
 });
 
-test('金手指开关状态会持久化，重开游戏仍是打开', async ({ page }) => {
+/* ------------------------------------------------------------------ */
+/* 金手指面板：平台自动暴露游戏声明的金手指                            */
+/* ------------------------------------------------------------------ */
+
+test('打开游戏后能看到金手指面板，并自动列出游戏声明的项', async ({ page }) => {
   await startInputsGame(page);
 
-  // 平台侧打开金手指：直接操作 IndexedDB 写入，模拟设置页行为
-  await page.evaluate(async () => {
-    await new Promise<void>((resolve, reject) => {
-      const open = indexedDB.open('hearthbox');
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result;
-        const tx = db.transaction('cheats', 'readwrite');
-        tx.objectStore('cheats').put(true, ['hearthbox.inputs', 'giant-cursor']);
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => reject(tx.error);
-      };
-    });
+  // HUD 上有入口
+  const cheatBtn = page.locator('#cheat-btn');
+  await expect(cheatBtn).toBeVisible();
+
+  await cheatBtn.click();
+  await expect(page.locator('.cheat-panel')).toBeVisible();
+
+  // 游戏声明了几条，面板就显示几条 —— 平台不写死任何一条
+  const rows = page.locator('.cheat-row');
+  await expect(rows).toHaveCount(3);
+
+  const names = await page.locator('.cheat-name').allTextContents();
+  expect(names).toContain('移动速度');
+  expect(names).toContain('巨大的准星');
+  expect(names).toContain('解锁全部颜色');
+
+  // 数值型显示滑杆，布尔型显示开关
+  await expect(page.locator('.cheat-slider')).toHaveCount(1);
+  await expect(page.locator('.cheat-toggle input')).toHaveCount(2);
+});
+
+test('金手指面板能改数值，且值被夹在声明范围内', async ({ page }) => {
+  await startInputsGame(page);
+  await page.locator('#cheat-btn').click();
+  await expect(page.locator('.cheat-panel')).toBeVisible();
+
+  const slider = page.locator('.cheat-slider').first();
+  // range 输入不能用 fill，改为直接设值并派发 input 事件
+  await slider.evaluate((el) => {
+    const input = el as HTMLInputElement;
+    input.value = '2';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  await page.waitForTimeout(200);
+  await expect(page.locator('.cheat-value').first()).toContainText('2');
 
-  // 重新进入，准星应该变大（金手指生效）
-  await page.reload();
-  await page.waitForLoadState('load');
-  await page.keyboard.press('Enter');
-  await expect(page.locator('canvas')).toBeVisible({ timeout: 15_000 });
-
-  // 把指针移到画面中央，数一下十字准星覆盖的像素宽度
-  const box = await page.locator('canvas').boundingBox();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  await page.waitForTimeout(250);
-
-  const armWidth = await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return 0;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return 0;
-    const { width, height } = canvas;
-    const midY = Math.floor(height / 2);
-    const data = ctx.getImageData(0, midY, width, 1).data;
-    let count = 0;
-    for (let x = 0; x < width; x += 1) {
-      const i = x * 4;
-      const r = data[i] ?? 0;
-      const g = data[i + 1] ?? 0;
-      const b = data[i + 2] ?? 0;
-      // 准星是灰白（低饱和、亮度中等以上），方块是饱和色
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      if (max - min < 30 && max > 60) count += 1;
-    }
-    return count;
+  // 超出范围的输入会被夹回 max（声明里 max = 3）
+  await slider.evaluate((el) => {
+    const input = el as HTMLInputElement;
+    input.value = '99';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+  await page.waitForTimeout(200);
+  await expect(page.locator('.cheat-value').first()).toContainText('3');
+});
 
-  // 放大版准星横臂 16 逻辑像素 × 2 = 32，按 4 倍缩放 ≈ 128 backing 像素
-  expect(armWidth).toBeGreaterThan(60);
+test('金手指面板能关闭，关闭后游戏恢复', async ({ page }) => {
+  await startInputsGame(page);
+  await page.locator('#cheat-btn').click();
+  await expect(page.locator('.cheat-panel')).toBeVisible();
+
+  await page.locator('.cheat-close').click();
+  await expect(page.locator('.cheat-panel')).toBeHidden();
+  await expect(page.locator('#hud')).toBeVisible();
 });

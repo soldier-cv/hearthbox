@@ -8,6 +8,7 @@ import {
   parseDebugOptions,
 } from '@hearthbox/runtime';
 import type { GameDefinition, GameManifest } from '@hearthbox/sdk';
+import { mountCheatPanel } from './cheat-panel.js';
 
 /**
  * 游戏宿主页。
@@ -37,6 +38,8 @@ const entryUrl = `${base}/${entryPath}`;
 const manifestUrl = `${base}/${manifestPath}`;
 
 let session: ReturnType<typeof createSession> | null = null;
+/** 金手指面板的挂载点。 */
+const cheatHost = document.querySelector<HTMLElement>('#cheats');
 
 function showCrash(error: unknown): void {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -135,6 +138,9 @@ async function boot(): Promise<Booted> {
       gate!.hidden = true;
       display.attach(stage!);
 
+      const hudBar = document.querySelector<HTMLElement>('#hud');
+      if (hudBar) hudBar.hidden = false;
+
       const definition = await loadModule();
       await instance.start({
         manifest,
@@ -142,13 +148,33 @@ async function boot(): Promise<Booted> {
         resolveAsset: (path) => `${base}/assets/${path}`,
         onExit: () => location.assign('/index.html'),
         onSystemMenu: () => {
-          if (confirm('退出游戏？')) location.assign('/index.html');
-          else instance.resume();
+          // 系统菜单：先弹金手指面板。退出游戏由面板里的按钮或 Esc 之外的路径触发。
+          openCheatPanel();
         },
       });
     },
   };
 }
+
+/** 打开金手指面板：暂停游戏、挂上 UI、关闭时恢复。 */
+function openCheatPanel(): void {
+  if (!session || !cheatHost || cheatHost.hidden === false) return;
+
+  // 暂停游戏，否则面板开着的时候游戏还在跑。
+  session.pause();
+  const hudBar = document.querySelector<HTMLElement>('#hud');
+  if (hudBar) hudBar.hidden = true;
+
+  mountCheatPanel(cheatHost, session, () => {
+    if (hudBar) hudBar.hidden = false;
+  });
+}
+
+const cheatButton = document.querySelector<HTMLButtonElement>('#cheat-btn');
+const quitButton = document.querySelector<HTMLButtonElement>('#quit-btn');
+
+cheatButton?.addEventListener('click', () => openCheatPanel());
+quitButton?.addEventListener('click', () => location.assign('/index.html'));
 
 /**
  * 第一次输入才启动游戏（音频要用户手势）。
