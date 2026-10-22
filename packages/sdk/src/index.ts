@@ -143,6 +143,10 @@ export interface GameContext {
   readonly audio: AudioApi;
   readonly storage: StorageApi;
   readonly platform: PlatformInfo;
+  /** 金手指：游戏声明，平台持有开关状态。见 cheats.md。 */
+  readonly cheats: CheatsApi;
+  /** 调试口子。默认关闭，关闭时所有方法都是空操作。 */
+  readonly debug: DebugApi;
   /** 返回货架。 */
   exit(): void;
   /** 尽力而为，没有马达时静默。 */
@@ -162,6 +166,50 @@ export type PointerMode =
   | 'visible'
   /** 显示系统指针，并强制使用"手型"。适合可点区域很明确的界面。 */
   | 'pointer';
+
+/**
+ * 金手指声明。见 docs/cheats.md。
+ *
+ * 平台负责开关状态、持久化与未来的设置页；游戏只负责声明与读取。
+ */
+export interface CheatDefinition {
+  /** 稳定 id，游戏内唯一，发布后不要改。 */
+  id: string;
+  /** 玩家看到的名字。 */
+  name: string;
+  description?: string;
+  /** 默认是否启用，缺省 false。 */
+  defaultEnabled?: boolean;
+  /** 危险等级，缺省 `gameplay`。 */
+  severity?: 'cosmetic' | 'gameplay' | 'destructive';
+}
+
+export interface CheatsApi {
+  /** 声明一个金手指。重复 id 抛错。 */
+  declare(definition: CheatDefinition): void;
+  /** 是否启用。每帧调用，不分配。 */
+  enabled(id: string): boolean;
+  /** 本帧内刚被切换为启用。用于"改完立即生效"的一次性逻辑。 */
+  justEnabled(id: string): boolean;
+  /** 全部已声明的金手指。 */
+  readonly all: readonly CheatDefinition[];
+}
+
+/** 调试口子。默认关闭时所有方法都是空操作。 */
+export interface DebugApi {
+  readonly enabled: boolean;
+  /** 固定随机种子；为 null 时游戏自己决定。 */
+  readonly seed: number | null;
+  /** update 的 dt 会乘以它，范围 0.05–4。 */
+  readonly timeScale: number;
+  /** 注册每帧回调，返回取消函数。 */
+  onFrame(callback: (frame: number) => void): () => void;
+  /** 暂停并手动推进 N 帧；非调试模式为空操作。 */
+  stepFrames(count: number): void;
+  readonly paused: boolean;
+  /** 恢复自动推进。 */
+  resume(): void;
+}
 
 export interface GameInstance {
   /** 固定 60Hz，dt 恒为 1/60。必须纯逻辑，不碰 DOM/Canvas。 */

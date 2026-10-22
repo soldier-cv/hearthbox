@@ -33,6 +33,21 @@ export default defineGame({
       size: saved?.size ?? 16,
     };
 
+    // 声明两个金手指。平台持有开关，玩家在设置页（M3）里切。
+    // 这里用它们验证"口子通了"，不是真的作弊功能。
+    ctx.cheats.declare({
+      id: 'giant-cursor',
+      name: '巨大的准星',
+      description: '把鼠标准星放大 4 倍，方便看清逻辑坐标换算。',
+      severity: 'cosmetic',
+    });
+    ctx.cheats.declare({
+      id: 'unlock-all-colors',
+      name: '解锁全部颜色',
+      description: '允许通过滚轮以外的方式循环所有颜色。',
+      severity: 'gameplay',
+    });
+
     let hits = 0;
     let pointerInsideBlock = false;
 
@@ -89,6 +104,12 @@ export default defineGame({
           persist();
         }
 
+        // 金手指：只有开启时才循环全部颜色（默认关，玩家在设置里打开）
+        if (ctx.cheats.enabled('unlock-all-colors') && keyboard.pressed('KeyC')) {
+          state.color = (state.color + 1) % COLORS.length;
+          persist();
+        }
+
         const half = state.size / 2;
         state.x = Math.min(ctx.width - half, Math.max(half, state.x));
         state.y = Math.min(ctx.height - half, Math.max(half, state.y));
@@ -113,9 +134,12 @@ export default defineGame({
 
         // 指针位置画个小十字：逻辑坐标是否点准了，一眼就能看出来。
         if (pointer.connected && pointer.inside) {
+          // 金手指：准星放大到 4 倍，用来验证作弊开关真的到了游戏手里。
+          const arm = ctx.cheats.enabled('giant-cursor') ? 16 : 4;
+          const thickness = ctx.cheats.enabled('giant-cursor') ? 3 : 1;
           g.fillStyle = pointerInsideBlock ? '#ffffff' : '#5a5a6e';
-          g.fillRect(pointer.x - 0.5, pointer.y - 4, 1, 8);
-          g.fillRect(pointer.x - 4, pointer.y - 0.5, 8, 1);
+          g.fillRect(pointer.x - thickness / 2, pointer.y - arm, thickness, arm * 2);
+          g.fillRect(pointer.x - arm, pointer.y - thickness / 2, arm * 2, thickness);
         }
 
         // 点击次数，用来确认 pressed 边沿没有重复触发。

@@ -5,6 +5,7 @@ import {
   createSession,
   createWebBridge,
   openStorage,
+  parseDebugOptions,
 } from '@hearthbox/runtime';
 import type { GameDefinition, GameManifest } from '@hearthbox/sdk';
 
@@ -114,6 +115,8 @@ async function boot(): Promise<Booted> {
     storage,
     sdkVersion: SDK_VERSION,
     gameId: manifest.id,
+    // 调试参数从 URL 来：?debug=1&seed=42&speed=0.5
+    debug: parseDebugOptions(location.search),
   });
   session = instance;
 

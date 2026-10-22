@@ -6,9 +6,25 @@
  */
 
 export const DB_NAME = 'hearthbox';
-export const DB_VERSION = 1;
+/**
+ * 数据库版本。
+ *
+ * 2：新增 `cheats` 对象库（金手指开关状态）。
+ *
+ * 升级只允许"新增版本号 + onupgradeneeded 里补建库"，禁止删除重建
+ * （见 runtime-api.md 第 7 节）。已有的存档与已安装游戏不能因为升级丢失。
+ */
+export const DB_VERSION = 2;
 
-export type StoreName = 'files' | 'installs' | 'saves' | 'settings' | 'profiles' | 'catalog-cache';
+export type StoreName =
+  | 'files'
+  | 'installs'
+  | 'saves'
+  | 'settings'
+  | 'profiles'
+  | 'catalog-cache'
+  /** 金手指开关状态：键是 `[gameId, cheatId]`，值是布尔。 */
+  | 'cheats';
 
 export interface Storage {
   get<T>(store: StoreName, key: IDBValidKey): Promise<T | undefined>;
@@ -33,7 +49,15 @@ export interface StorageConfig {
   version?: number | undefined;
 }
 
-const STORES: StoreName[] = ['files', 'installs', 'saves', 'settings', 'profiles', 'catalog-cache'];
+const STORES: StoreName[] = [
+  'files',
+  'installs',
+  'saves',
+  'settings',
+  'profiles',
+  'catalog-cache',
+  'cheats',
+];
 
 export function openStorage(config: StorageConfig = {}): Promise<Storage> {
   const factory = config.factory ?? indexedDB;

@@ -342,3 +342,71 @@ test('货架列出两个夹具并标注支持的输入', async ({ page }) => {
   await expect(cards.nth(1).locator('p.inputs')).toContainText('鼠标');
   await expect(cards.nth(0).locator('p.inputs')).toContainText('手柄');
 });
+
+test('调试参数能打开调试模式，非法值不崩', async ({ page }) => {
+  // speed 会被夹到合法范围，页面照常启动
+  await startInputsGame(page);
+  await page.goto(`${INPUTS}&debug=1&seed=42&speed=0.01`);
+  await page.waitForLoadState('load');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#crash')).toBeHidden();
+});
+
+test('金手指开关状态会持久化，重开游戏仍是打开', async ({ page }) => {
+  await startInputsGame(page);
+
+  // 平台侧打开金手指：直接操作 IndexedDB 写入，模拟设置页行为
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const open = indexedDB.open('hearthbox');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('cheats', 'readwrite');
+        tx.objectStore('cheats').put(true, ['hearthbox.inputs', 'giant-cursor']);
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onerror = () => reject(tx.error);
+      };
+    });
+  });
+
+  // 重新进入，准星应该变大（金手指生效）
+  await page.reload();
+  await page.waitForLoadState('load');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 15_000 });
+
+  // 把指针移到画面中央，数一下十字准星覆盖的像素宽度
+  const box = await page.locator('canvas').boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.waitForTimeout(250);
+
+  const armWidth = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return 0;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 0;
+    const { width, height } = canvas;
+    const midY = Math.floor(height / 2);
+    const data = ctx.getImageData(0, midY, width, 1).data;
+    let count = 0;
+    for (let x = 0; x < width; x += 1) {
+      const i = x * 4;
+      const r = data[i] ?? 0;
+      const g = data[i + 1] ?? 0;
+      const b = data[i + 2] ?? 0;
+      // 准星是灰白（低饱和、亮度中等以上），方块是饱和色
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      if (max - min < 30 && max > 60) count += 1;
+    }
+    return count;
+  });
+
+  // 放大版准星横臂 16 逻辑像素 × 2 = 32，按 4 倍缩放 ≈ 128 backing 像素
+  expect(armWidth).toBeGreaterThan(60);
+});

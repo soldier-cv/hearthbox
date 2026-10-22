@@ -1,4 +1,6 @@
 export { createAudio, type Audio, type AudioBus } from './audio.js';
+export { resolveCheats, type CheatDefinition, type CheatState } from './cheats.js';
+export { clampTimeScale, parseDebugOptions, type DebugOptions } from './debug.js';
 export { applyRadialDeadzone, applyTriggerDeadzone, mergeMove, snapAxis } from './deadzone.js';
 export {
   createDisplay,

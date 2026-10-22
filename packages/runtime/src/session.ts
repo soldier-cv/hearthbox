@@ -1,5 +1,8 @@
 import type {
   AudioApi,
+  CheatsApi,
+  CheatDefinition,
+  DebugApi,
   GameContext,
   GameInstance,
   GameManifest,
@@ -9,6 +12,8 @@ import type {
 } from '@hearthbox/sdk';
 import type { Audio } from './audio.js';
 import { createAssetLoader } from './assets.js';
+import { resolveCheats } from './cheats.js';
+import { clampTimeScale } from './debug.js';
 import type { Display } from './display.js';
 import type { HostBridge } from './host.js';
 import { createInput, type Input } from './input.js';
@@ -26,6 +31,12 @@ export interface SessionDeps {
   sdkVersion: string;
   /** 游戏 id，用于存档命名空间。 */
   gameId: string;
+  /** 调试设置，由宿主从 URL 或设置项解析后传入。 */
+  debug?: {
+    enabled?: boolean;
+    seed?: number | null;
+    timeScale?: number;
+  };
   /** 注入时钟与 rAF，测试时手动推进。 */
   now?: () => number;
   requestFrame?: (cb: (time: number) => void) => number;
@@ -48,6 +59,15 @@ export interface Session {
   stop(): Promise<void>;
   /** 关闭系统菜单后恢复游戏。 */
   resume(): void;
+  /**
+   * 切换金手指开关。设置页与将来的金手指面板用它。
+   *
+   * 游戏侧只读 `ctx.cheats.enabled()`；写入只发生在平台侧，
+   * 这样"谁拥有开关状态"始终只有一处。
+   */
+  setCheat(id: string, enabled: boolean): void;
+  /** 当前已声明的金手指（游戏 create 之后才有内容）。 */
+  readonly cheats: readonly CheatDefinition[];
   /** 当前游戏实例，未启动时为 null。 */
   readonly instance: GameInstance | null;
   readonly running: boolean;
@@ -70,6 +90,66 @@ export function createSession(deps: SessionDeps): Session {
   let lastFlush = 0;
 
   const saveKey = (key: string): [string, string] => [gameId, key];
+
+  // 金手指开关：与存档分开落盘。卸载游戏不应清掉玩家关掉过哪些作弊，
+  // 否则重装之后又全部打开了。
+  const dirtyCheats = new Set<string>();
+  let cheatTimer: ReturnType<typeof setTimeout> | null = null;
+  const cheatStateRef: { current: Map<string, boolean> | null } = { current: null };
+
+  /**
+   * 金手指状态在会话层持有（不在 start() 作用域里），
+   * 因为设置页会在游戏运行中随时调用 setCheat。
+   */
+  const declaredCheats: CheatDefinition[] = [];
+  const declaredCheatIds = new Set<string>();
+  let cheatState = new Map<string, boolean>();
+  const previousCheatState = new Map<string, boolean>();
+  const justEnabledIds = new Set<string>();
+  let savedCheatValues: Record<string, boolean> = {};
+
+  function applyCheat(id: string, enabled: boolean): void {
+    if (!cheatState.has(id)) return;
+    cheatState.set(id, enabled);
+    dirtyCheats.add(id);
+    scheduleFlushCheats();
+  }
+
+  async function loadCheatState(id: string): Promise<Record<string, boolean>> {
+    const allKeys = await storage.keys('cheats');
+    const result: Record<string, boolean> = {};
+    for (const key of allKeys) {
+      if (!Array.isArray(key) || key.length !== 2 || key[0] !== id) continue;
+      const cheatId = key[1];
+      if (typeof cheatId !== 'string') continue;
+      const value = await storage.get<boolean>('cheats', key);
+      if (typeof value === 'boolean') result[cheatId] = value;
+    }
+    return result;
+  }
+
+  function scheduleFlushCheats(): void {
+    if (cheatTimer !== null) return;
+    cheatTimer = setTimeout(() => {
+      cheatTimer = null;
+      void flushCheats().catch(() => {});
+    }, SAVE_THROTTLE_MS);
+  }
+
+  async function flushCheats(): Promise<void> {
+    if (dirtyCheats.size === 0) return;
+    const state = cheatStateRef.current;
+    if (!state) return;
+    const ids = [...dirtyCheats];
+    dirtyCheats.clear();
+    for (const id of ids) {
+      try {
+        await storage.put('cheats', [gameId, id], state.get(id) === true);
+      } catch {
+        dirtyCheats.add(id);
+      }
+    }
+  }
   function scheduleFlush(): void {
     if (saveTimer !== null) return;
     const delay = Math.max(0, SAVE_THROTTLE_MS - (now() - lastFlush));
@@ -143,6 +223,12 @@ export function createSession(deps: SessionDeps): Session {
     get running() {
       return running;
     },
+    get cheats() {
+      return declaredCheats;
+    },
+    setCheat(id, enabled) {
+      applyCheat(id, enabled);
+    },
 
     async start(startOptions) {
       if (running) return;
@@ -181,6 +267,73 @@ export function createSession(deps: SessionDeps): Session {
         locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
       };
 
+      // 金手指：游戏声明、平台持有开关。状态按 [gameId, cheatId] 持久化。
+      savedCheatValues = await loadCheatState(gameId);
+      declaredCheats.length = 0;
+      declaredCheatIds.clear();
+      cheatState = new Map<string, boolean>();
+      previousCheatState.clear();
+      justEnabledIds.clear();
+      cheatStateRef.current = cheatState;
+
+      const cheatsApi: CheatsApi = {
+        declare(definition) {
+          if (declaredCheatIds.has(definition.id)) {
+            throw new Error(`金手指 id 重复：${definition.id}`);
+          }
+          declaredCheatIds.add(definition.id);
+          declaredCheats.push(definition);
+
+          // 声明时才把"已保存值 / 默认值"合并进开关表：游戏在 create() 里才声明。
+          const resolved = resolveCheats([definition], savedCheatValues);
+          const enabled = resolved.get(definition.id) === true;
+          cheatState.set(definition.id, enabled);
+          previousCheatState.set(definition.id, enabled);
+
+          // 默认开启也要落盘，否则下次读回来就成了"没设置过"。
+          if (definition.defaultEnabled === true && savedCheatValues[definition.id] === undefined) {
+            dirtyCheats.add(definition.id);
+            scheduleFlushCheats();
+          }
+        },
+        enabled: (id) => cheatState.get(id) === true,
+        justEnabled: (id) => justEnabledIds.has(id),
+        get all() {
+          return declaredCheats;
+        },
+      };
+
+      // 调试口子：关闭时所有方法都是空操作。
+      const debugEnabled = deps.debug?.enabled === true;
+      const debugTimeScale = clampTimeScale(deps.debug?.timeScale ?? 1);
+      const frameCallbacks = new Set<(frame: number) => void>();
+      let frameCount = 0;
+      let manualPause = false;
+      let pendingSteps = 0;
+
+      const debugApi: DebugApi = {
+        enabled: debugEnabled,
+        seed: deps.debug?.seed ?? null,
+        timeScale: debugTimeScale,
+        onFrame(callback) {
+          if (!debugEnabled) return () => {};
+          frameCallbacks.add(callback);
+          return () => frameCallbacks.delete(callback);
+        },
+        stepFrames(count) {
+          if (!debugEnabled) return;
+          manualPause = true;
+          pendingSteps += Math.max(0, Math.floor(count));
+        },
+        get paused() {
+          return manualPause;
+        },
+        resume() {
+          manualPause = false;
+          pendingSteps = 0;
+        },
+      };
+
       const ctx: GameContext = {
         ctx2d: display.ctx,
         width: display.width,
@@ -190,6 +343,8 @@ export function createSession(deps: SessionDeps): Session {
         audio: audioApi,
         storage: storageApi,
         platform,
+        cheats: cheatsApi,
+        debug: debugApi,
         exit: () => startOptions.onExit(),
         rumble(strong, weak, ms) {
           bridge.rumble?.(0, strong, weak, ms);
@@ -205,13 +360,34 @@ export function createSession(deps: SessionDeps): Session {
         {
           update() {
             gameInput.sample();
+
+            // 调试：手动步进模式下，只有待处理的步数才真正跑 update。
+            if (manualPause) {
+              if (pendingSteps <= 0) return;
+              pendingSteps -= 1;
+            }
+
             if (gameInput.systemMenuRequested()) {
               if (loop) loop.paused = true;
               instance?.pause?.();
               startOptions.onSystemMenu?.();
               return;
             }
-            instance?.update(1 / 60);
+
+            // 金手指开关可能在两帧之间被改（设置页或调试面板），
+            // 每帧算一次 justEnabled，游戏就能做"立刻生效"的一次性处理。
+            justEnabledIds.clear();
+            for (const [id, enabled] of cheatState) {
+              if (enabled && previousCheatState.get(id) !== true) justEnabledIds.add(id);
+              previousCheatState.set(id, enabled);
+            }
+
+            frameCount += 1;
+            if (debugEnabled) {
+              for (const callback of frameCallbacks) callback(frameCount);
+            }
+
+            instance?.update((1 / 60) * debugTimeScale);
           },
           render(alpha) {
             instance?.render(alpha);
@@ -264,8 +440,13 @@ export function createSession(deps: SessionDeps): Session {
         clearTimeout(saveTimer);
         saveTimer = null;
       }
+      if (cheatTimer !== null) {
+        clearTimeout(cheatTimer);
+        cheatTimer = null;
+      }
       // 退出必须立刻落盘，不能等节流窗口。
       await flush().catch(() => {});
+      await flushCheats().catch(() => {});
 
       instance?.dispose?.();
       instance = null;
