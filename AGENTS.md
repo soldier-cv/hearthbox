@@ -246,6 +246,7 @@ function addOne(n: number): number {
 | `docs/tuning.md`        | 数值分层与金手指设计           |
 | `docs/plugins.md`       | 可调项架构、三类插件、未来扩展 |
 | `docs/distribution.md`  | 分发、更新、产品复核           |
+| `docs/porting.md`       | **已有游戏怎么接进来（对外）**  |
 | `docs/tank-port.md`     | 坦克游戏怎么移植进来           |
 | `docs/compatibility.md`    | 基线、性能预算、依赖标准       |
 | `docs/deployment.md`       | 开发环境与公网部署             |
