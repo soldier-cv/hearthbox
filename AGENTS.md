@@ -246,6 +246,6 @@ function addOne(n: number): number {
 | `docs/cheats.md`           | 金手指与调试口子               |
 | `docs/cartridge-contract.md` | 卡带格式版本、资源上限、API 取舍 |
 | `docs/tuning.md`        | 数值分层与金手指设计           |
-| `docs/cheats-panel.md`  | 自动暴露、注入边界、插件体系   |
+| `docs/plugins.md`       | 可调项架构、三类插件、未来扩展 |
 | `docs/compatibility.md`    | 基线、性能预算、依赖标准       |
 | `docs/deployment.md`       | 开发环境与公网部署             |

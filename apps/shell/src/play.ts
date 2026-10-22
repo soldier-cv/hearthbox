@@ -8,7 +8,7 @@ import {
   parseDebugOptions,
 } from '@hearthbox/runtime';
 import type { GameDefinition, GameManifest } from '@hearthbox/sdk';
-import { mountCheatPanel } from './cheat-panel.js';
+import { mountOptionPanel } from './cheat-panel.js';
 
 /**
  * 游戏宿主页。
@@ -148,33 +148,70 @@ async function boot(): Promise<Booted> {
         resolveAsset: (path) => `${base}/assets/${path}`,
         onExit: () => location.assign('/index.html'),
         onSystemMenu: () => {
-          // 系统菜单：先弹金手指面板。退出游戏由面板里的按钮或 Esc 之外的路径触发。
-          openCheatPanel();
+          // 手柄长按 start+select：优先开金手指，没有则开设置。
+          if (instance.optionsOf('cheat').length > 0) openPanel('cheat');
+          else openPanel('setting');
         },
       });
+
+      // 必须等 start() 完成后再刷新：游戏是在 create() 里才 declare 的，
+      // 提前调用会读到空列表，导致面板按钮全部隐藏。
+      refreshHud();
+      // 有的游戏在 create 之后才异步 declare，跟着刷新。
+      instance.onOptionsChange(refreshHud);
     },
   };
 }
 
-/** 打开金手指面板：暂停游戏、挂上 UI、关闭时恢复。 */
-function openCheatPanel(): void {
+/**
+ * 打开可调项面板。
+ *
+ * 三个 scope 共用一套实现，只是过滤条件与标题不同 —— 这是"一套 API
+ * 覆盖三类面板"的直接体现。加新面板不需要写新的渲染代码。
+ */
+function openPanel(scope: 'cheat' | 'setting' | 'status'): void {
   if (!session || !cheatHost || cheatHost.hidden === false) return;
+  if (session.optionsOf(scope).length === 0) return;
 
-  // 暂停游戏，否则面板开着的时候游戏还在跑。
+  const titles = { cheat: '金手指', setting: '游戏设置', status: '成就与统计' } as const;
+
   session.pause();
   const hudBar = document.querySelector<HTMLElement>('#hud');
   if (hudBar) hudBar.hidden = true;
 
-  mountCheatPanel(cheatHost, session, () => {
+  mountOptionPanel(cheatHost, session, scope, titles[scope], () => {
     if (hudBar) hudBar.hidden = false;
   });
 }
 
 const cheatButton = document.querySelector<HTMLButtonElement>('#cheat-btn');
+const settingButton = document.querySelector<HTMLButtonElement>('#setting-btn');
+const statusButton = document.querySelector<HTMLButtonElement>('#status-btn');
 const quitButton = document.querySelector<HTMLButtonElement>('#quit-btn');
 
-cheatButton?.addEventListener('click', () => openCheatPanel());
+cheatButton?.addEventListener('click', () => openPanel('cheat'));
+settingButton?.addEventListener('click', () => openPanel('setting'));
+statusButton?.addEventListener('click', () => openPanel('status'));
 quitButton?.addEventListener('click', () => location.assign('/index.html'));
+
+/**
+ * 按游戏实际声明决定哪些按钮可见。
+ *
+ * 游戏没有设置项就不该显示"设置"按钮 —— 空面板比没有按钮更糟。
+ */
+function refreshHud(): void {
+  const showButton = (
+    button: HTMLButtonElement | null,
+    scope: 'cheat' | 'setting' | 'status',
+  ): void => {
+    if (!button) return;
+    const has = (session?.optionsOf(scope).length ?? 0) > 0;
+    button.hidden = !has;
+  };
+  showButton(cheatButton, 'cheat');
+  showButton(settingButton, 'setting');
+  showButton(statusButton, 'status');
+}
 
 /**
  * 第一次输入才启动游戏（音频要用户手势）。

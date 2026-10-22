@@ -206,7 +206,7 @@ describe('金手指状态跨会话持久化', () => {
         resolveAsset: (p) => p,
         onExit: () => {},
       }),
-    ).rejects.toThrow('金手指 id 重复');
+    ).rejects.toThrow('id 重复');
     await session.stop().catch(() => {});
     storage.close();
   });

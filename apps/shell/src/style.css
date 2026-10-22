@@ -305,6 +305,38 @@ button:focus-visible {
   color: #6a6a7a;
 }
 
+.cheat-choices {
+  display: flex;
+  gap: 6px;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cheat-choice {
+  font-size: 0.68rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #2a2a36;
+  background: #0f0f14;
+  color: #9a9aa8;
+  cursor: pointer;
+}
+
+.cheat-choice[aria-pressed='true'] {
+  background: #f5a524;
+  border-color: #f5a524;
+  color: #101014;
+}
+
+.cheat-readonly .cheat-value {
+  color: #4ade80;
+}
+
+.hud-btn-quiet {
+  background: rgba(154, 154, 168, 0.75);
+  color: #101014;
+}
+
 .pads-page {
   padding: 2rem;
 }

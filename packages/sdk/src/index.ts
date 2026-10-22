@@ -1,3 +1,22 @@
+/**
+ * Hearthbox 游戏契约。
+ *
+ * 零运行时依赖：只有类型和一个恒等函数 defineGame()。
+ */
+
+export type {
+  BooleanOption,
+  ChoiceOption,
+  NumberOption,
+  OptionBase,
+  OptionDefinition,
+  OptionKind,
+  OptionScope,
+  OptionValue,
+  OptionsApi,
+} from './options.js';
+
+import type { OptionsApi } from './options.js';
 /** 手柄按钮，按物理位置命名：不同手柄的 A/B/X/Y 标签不一致，位置才是稳定的。 */
 export type Button =
   | 'south'
@@ -143,7 +162,17 @@ export interface GameContext {
   readonly audio: AudioApi;
   readonly storage: StorageApi;
   readonly platform: PlatformInfo;
-  /** 金手指：游戏声明，平台持有开关状态。见 cheats.md。 */
+  /**
+   * 可调项：金手指、游戏设置、只读状态。
+   *
+   * **一套 API 覆盖三类面板**，用 `scope` 区分归属。见 docs/plugins.md。
+   * 平台据此渲染控件、持久化、夹取越界值。
+   */
+  readonly options: OptionsApi;
+  /**
+   * 兼容别名，等价于 `options` 但只暴露金手指常用方法。
+   * 新代码直接用 `ctx.options`。
+   */
   readonly cheats: CheatsApi;
   /**
    * 可设定种子的随机数。
@@ -189,15 +218,10 @@ export interface Random {
 }
 
 /**
- * 金手指声明。见 docs/cheats.md。
+ * 金手指声明（兼容别名）。
  *
- * 两种形态：
- * - `boolean`：开关（无敌、解锁全部）
- * - `number`：有范围的数值（经验倍率 1–5、出怪速度 0.2–2）
- *
- * 声明 `number` 时**必须**给 `min`/`max`/`step`/`defaultValue`。平台据此
- * 生成 UI、夹取越界值、对齐步进。不给范围就没有 UI 可生成，也无法防止
- * 游戏读到 1e9 这种把平衡和存档都搞坏的值。
+ * 新代码请用 `OptionDefinition` 配 `scope: 'cheat'`。
+ * 这个类型保留是因为已经发布的游戏在用，且它在语义上就是"scope 为 cheat 的可调项"。
  */
 export type CheatDefinition = BooleanCheat | NumberCheat;
 
@@ -215,6 +239,8 @@ export interface BooleanCheat extends CheatBase {
   kind?: 'boolean';
   /** 默认是否启用，缺省 false。 */
   defaultEnabled?: boolean;
+  /** 固定为金手指面板，可省略。 */
+  scope?: 'cheat';
 }
 
 export interface NumberCheat extends CheatBase {
@@ -229,10 +255,12 @@ export interface NumberCheat extends CheatBase {
   defaultValue: number;
   /** 单位，仅用于显示，如 '×'、'%'、's'。 */
   unit?: string;
+  /** 固定为金手指面板，可省略。 */
+  scope?: 'cheat';
 }
 
 export interface CheatsApi {
-  /** 声明一个金手指。重复 id 抛错；number 型范围非法也抛错。 */
+  /** 声明一个金手指（等价于 options.declare 且 scope 为 cheat）。 */
   declare(definition: CheatDefinition): void;
 
   /** 是否启用。boolean 型直接返回；number 型返回是否非默认值。 */

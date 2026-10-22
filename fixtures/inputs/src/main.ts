@@ -66,7 +66,33 @@ export default defineGame({
     });
 
     /** 当前生效的速度倍率。走金手指的数值型接口，已夹在范围内。 */
-    const speedScale = (): number => ctx.cheats.value('move-speed');
+    const speedScale = (): number => {
+      const value = ctx.options.value('move-speed');
+      return typeof value === 'number' ? value : 1;
+    };
+
+    // ---- 演示另外两个 scope：设置与只读状态 ----
+    // 它们和金手指用同一套声明 API，只是进不同面板。
+    ctx.options.declare({
+      id: 'cursor-style',
+      name: '指针样式',
+      description: '选择画布内指针的绘制方式。',
+      kind: 'choice',
+      scope: 'setting',
+      defaultValue: 'cross',
+      choices: [
+        { value: 'cross', label: '十字' },
+        { value: 'dot', label: '圆点' },
+        { value: 'none', label: '不显示' },
+      ],
+    });
+
+    ctx.options.declare({
+      id: 'clicks',
+      name: '累计点击',
+      description: '本次存档内点中方块的次数。',
+      scope: 'status',
+    });
 
     let hits = 0;
     let pointerInsideBlock = false;
@@ -105,6 +131,8 @@ export default defineGame({
           if (pointerInsideBlock) {
             state.color = (state.color + 1) % COLORS.length;
             hits += 1;
+            // 写进 status 面板，玩家在"成就"里能看到累计次数。
+            ctx.storage.set('hits', hits);
             persist();
           } else {
             state.x = pointer.x;
@@ -164,12 +192,20 @@ export default defineGame({
 
         // 指针位置画个小十字：逻辑坐标是否点准了，一眼就能看出来。
         if (pointer.connected && pointer.inside) {
-          // 金手指：准星放大到 4 倍，用来验证作弊开关真的到了游戏手里。
-          const arm = ctx.cheats.enabled('giant-cursor') ? 16 : 4;
-          const thickness = ctx.cheats.enabled('giant-cursor') ? 3 : 1;
-          g.fillStyle = pointerInsideBlock ? '#ffffff' : '#5a5a6e';
-          g.fillRect(pointer.x - thickness / 2, pointer.y - arm, thickness, arm * 2);
-          g.fillRect(pointer.x - arm, pointer.y - thickness / 2, arm * 2, thickness);
+          // 设置项：玩家可以在"设置"面板里改成圆点或不显示。
+          const style = ctx.options.choice('cursor-style');
+          if (style !== 'none') {
+            // 金手指：准星放大到 4 倍，用来验证作弊开关真的到了游戏手里。
+            const arm = ctx.cheats.enabled('giant-cursor') ? 16 : 4;
+            const thickness = ctx.cheats.enabled('giant-cursor') ? 3 : 1;
+            g.fillStyle = pointerInsideBlock ? '#ffffff' : '#5a5a6e';
+            if (style === 'dot') {
+              g.fillRect(pointer.x - 2, pointer.y - 2, 4, 4);
+            } else {
+              g.fillRect(pointer.x - thickness / 2, pointer.y - arm, thickness, arm * 2);
+              g.fillRect(pointer.x - arm, pointer.y - thickness / 2, arm * 2, thickness);
+            }
+          }
         }
 
         // 点击次数，用来确认 pressed 边沿没有重复触发。

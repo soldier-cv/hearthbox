@@ -1,18 +1,21 @@
 import type {
   AudioApi,
-  CheatDefinition,
+  CheatsApi,
   DebugApi,
   GameContext,
   GameInstance,
   GameManifest,
   InputView,
+  OptionDefinition,
+  OptionScope,
+  OptionValue,
   PlatformInfo,
   Random,
 } from '@hearthbox/sdk';
 import type { Audio } from './audio.js';
 import { createAssetLoader } from './assets.js';
 import { createRandom, randomSeed } from './random.js';
-import { createCheatStore, loadCheatState, type CheatStore } from './cheat-store.js';
+import { createOptionStore, loadOptions, type OptionStore } from './option-store.js';
 import { createDebug } from './debug-api.js';
 import type { Display } from './display.js';
 import type { HostBridge } from './host.js';
@@ -75,15 +78,21 @@ export interface Session {
    */
   setCheat(id: string, value: boolean | number): void;
   /** 读当前值。boolean 型返回 boolean，number 型返回 number。 */
-  getCheat(id: string): boolean | number | undefined;
-  /** 当前已声明的金手指（游戏 create 之后才有内容）。 */
-  readonly cheats: readonly CheatDefinition[];
+  getOption(id: string): OptionValue | undefined;
+  /** 设置任意可调项（金手指、设置都用它）。 */
+  setOption(id: string, value: OptionValue): void;
+  /** 当前已声明项（游戏 create 之后才有内容）。 */
+  readonly cheats: readonly OptionDefinition[];
+  /** 按面板过滤。 */
+  optionsOf(scope: OptionScope): readonly OptionDefinition[];
   /**
    * 订阅金手指变化。面板打开时挂上，关闭时取消。
    *
    * 返回取消函数。回调在任意线程（微任务）里触发，面板要自己防抖重绘。
    */
   onCheatsChange(listener: () => void): () => void;
+  /** 任意可调项变化时触发。 */
+  onOptionsChange(listener: () => void): () => void;
   /** 当前游戏实例，未启动时为 null。 */
   readonly instance: GameInstance | null;
   readonly running: boolean;
@@ -93,7 +102,7 @@ interface ContextDeps {
   display: Display;
   audio: Audio;
   saves: SaveStore;
-  cheats: CheatStore;
+  options: OptionStore;
   inputView: InputView;
   debug: DebugApi;
   random: Random;
@@ -105,7 +114,7 @@ interface ContextDeps {
 
 /** 组装游戏看到的 ctx。这一步没有状态，纯粹是接线，单独放便于阅读。 */
 function buildContext(deps: ContextDeps): GameContext {
-  const { display, audio, saves, cheats, inputView, bridge, random } = deps;
+  const { display, audio, saves, options, inputView, bridge, random } = deps;
   return {
     ctx2d: display.ctx,
     width: display.width,
@@ -119,7 +128,9 @@ function buildContext(deps: ContextDeps): GameContext {
       sdkVersion: deps.sdkVersion,
       locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
     } satisfies PlatformInfo,
-    cheats: cheats.api,
+    options: options.api,
+    // 兼容别名：老游戏用 ctx.cheats.declare / enabled，指向同一套实现。
+    cheats: options.api as unknown as CheatsApi,
     random: random,
     debug: deps.debug,
     exit: deps.onExit,
@@ -143,7 +154,7 @@ export function createSession(deps: SessionDeps): Session {
   let unsubscribeLifecycle: (() => void) | null = null;
   let running = false;
   let saves: SaveStore | null = null;
-  let cheats: CheatStore | null = null;
+  let optionStore: OptionStore | null = null;
 
   const debug = createDebug(deps.debug);
 
@@ -163,7 +174,7 @@ export function createSession(deps: SessionDeps): Session {
             return;
           }
 
-          cheats?.beginFrame();
+          optionStore?.beginFrame();
           debug.tick();
           instance?.update((1 / 60) * debug.timeScale);
         },
@@ -205,7 +216,7 @@ export function createSession(deps: SessionDeps): Session {
       return running;
     },
     get cheats() {
-      return cheats?.declared ?? [];
+      return optionStore?.declared ?? [];
     },
 
     async start(options) {
@@ -215,7 +226,7 @@ export function createSession(deps: SessionDeps): Session {
       saves = createSaveStore(storage, gameId);
       await saves.load();
 
-      cheats = createCheatStore(storage, gameId, await loadCheatState(storage, gameId));
+      optionStore = createOptionStore(storage, gameId, await loadOptions(storage, gameId));
 
       const gameInput = createInput({
         sources: bridge.inputSources(),
@@ -244,7 +255,7 @@ export function createSession(deps: SessionDeps): Session {
         display,
         audio,
         saves,
-        cheats,
+        options: optionStore,
         inputView,
         debug: debug.api,
         // 种子优先取调试参数；没有就用时间戳，至少能知道那次运行的起点。
@@ -274,14 +285,18 @@ export function createSession(deps: SessionDeps): Session {
     flushNow() {
       if (!running) return;
       saves?.flushNow();
-      cheats?.flushNow();
+      optionStore?.flushNow();
     },
 
-    setCheat: (id, value) => cheats?.set(id, value),
-    getCheat: (id) => cheats?.get(id),
-    onCheatsChange: (listener) => cheats?.subscribe(listener) ?? (() => {}),
+    setCheat: (id, value) => optionStore?.set(id, value),
+    setOption: (id, value) => optionStore?.set(id, value),
+    optionsOf: (scope) => optionStore?.api.byScope(scope) ?? [],
+    getOption: (id) => optionStore?.get(id),
+    onCheatsChange: (listener) => optionStore?.subscribe(listener) ?? (() => {}),
+    onOptionsChange: (listener) => optionStore?.subscribe(listener) ?? (() => {}),
 
-    async stop() {      if (!running) return;
+    async stop() {
+      if (!running) return;
       running = false;
 
       loop?.stop();
@@ -292,7 +307,7 @@ export function createSession(deps: SessionDeps): Session {
 
       // 退出必须立刻落盘，不能等节流窗口。
       await saves?.flush().catch(() => {});
-      await cheats?.flush().catch(() => {});
+      await optionStore?.flush().catch(() => {});
 
       instance?.dispose?.();
       instance = null;
@@ -303,7 +318,7 @@ export function createSession(deps: SessionDeps): Session {
       }
 
       saves?.reset();
-      cheats?.reset();
+      optionStore?.reset();
 
       bridge.keepAwake(false);
       void audio.suspend();

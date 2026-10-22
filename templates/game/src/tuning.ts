@@ -40,6 +40,7 @@ export const baseline: Tuning = {
  * 数值型金手指都给了范围，平台据此生成 UI 并夹取越界值。
  */
 export function declareCheats(ctx: GameContext): void {
+  // 金手指：玩家想用就开，默认全是原版数值。
   ctx.cheats.declare({
     id: 'move-speed',
     name: '移动速度',
@@ -86,6 +87,19 @@ export function declareCheats(ctx: GameContext): void {
     step: 0.5,
     defaultValue: 1,
     unit: '×',
+  });
+
+  // 设置项与金手指用同一套 declare，只是 scope 不同。
+  ctx.options.declare({
+    id: 'shake',
+    name: '屏幕震动',
+    kind: 'choice',
+    scope: 'setting',
+    defaultValue: 'on',
+    choices: [
+      { value: 'on', label: '开' },
+      { value: 'off', label: '关' },
+    ],
   });
 
   ctx.cheats.declare({
