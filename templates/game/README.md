@@ -8,13 +8,21 @@
 cd hearthbox-projects
 cp -r hearthbox/templates/game my-game
 cd my-game
+git init && git add -A && git commit -m "feat: 从模板初始化"
 ```
 
-然后改三处：
+**复制完先改这几处**，然后才能写代码：
 
-1. `package.json` 的 `name`
-2. `game.json` 的 `id`、`name`、`summary`
-3. `src/main.ts` 的 `defineGame({ id })` —— 必须与 `game.json` 一致
+| 改什么 | 改成 |
+|---|---|
+| `game.json` 的 `id` | `你的名字.游戏名`，只能小写字母、数字、连字符 |
+| `game.json` 的 `name` / `summary` | 游戏名与一句话介绍 |
+| `src/main.ts` 的 `defineGame({ id })` | **必须与 `game.json` 的 id 一模一样** |
+| `package.json` 的 `name` | 包名，如 `my-game` |
+| `AGENTS.md` | 通读一遍，把内容改成你游戏的实际情况 |
+
+`AGENTS.md` 里没有占位符——它用模板自带的小游戏作为样例填好了。
+照着改成你自己的，比从空白写快，也不会漏掉必须写的东西。
 
 ```bash
 pnpm install --ignore-workspace
@@ -28,6 +36,7 @@ cd ../hearthbox && pnpm dev
 
 ```
 game/
+├── AGENTS.md          这个游戏的说明：是什么、结构、规矩、怎么跑
 ├── game.json          清单，三处要改
 ├── package.json       依赖用 file: 指进平台仓库（M2 之前）
 ├── tsconfig.json      不 extends 平台配置，自包含

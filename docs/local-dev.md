@@ -33,6 +33,7 @@ my-game/
 ├── package.json
 ├── tsconfig.json
 ├── vite.config.ts
+├── AGENTS.md        这个游戏的说明，复制后改成实际情况
 ├── src/main.ts
 └── assets/            # 可选
 ```

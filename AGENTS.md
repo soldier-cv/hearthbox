@@ -4,6 +4,21 @@
 
 本文件是给在这个仓库里工作的代理的入口。细节在 `docs/`，这里只讲边界、目录和怎么对接。改架构时在 `docs/decisions.md` 追加新记录，不要改写旧记录。
 
+## 硬性规矩（先看这几条）
+
+违反其中任何一条都会造成难以回滚的后果：
+
+1. **不改 origin / scheme**（`androidScheme`、hostname、Tauri scheme）。改了等于换域名，IndexedDB 里的存档与已装游戏全部丢失。见 D3。
+2. **游戏包零裸导入、单文件 ESM**。SDK 也要内联。包在 blob URL 下执行，裸说明符解析不了。见 D16。
+3. **画布归平台**。游戏拿 `ctx.ctx2d`，不自己 `getContext`。见 D15。
+4. **存储只加不建**。升 `DB_VERSION` 并在 `onupgradeneeded` 里补建库，禁止删除重建。见 `runtime-api.md` 第 7 节。
+5. **热路径不分配**。`loop` / `input` / `display` 每帧都跑，禁止每帧 new 对象。
+6. **新依赖先对照 `compatibility.md` 第 6 节**。拿不准就先问。
+7. **私钥、keystore、`.env` 不进仓库**。
+8. **决策只追加，不改写**。`docs/decisions.md` 是历史记录，推翻旧决策要新增一条并注明取代关系。
+
+提交前四件事全过才算完成：`pnpm lint && pnpm typecheck && pnpm test && pnpm build`。
+
 ## 现在处于什么阶段
 
 **M1 已完成**：运行时内核、SDK v0、货架页、宿主页都能在 PC 浏览器里跑。demo 里的演示游戏能玩，存档刷新后保留。
