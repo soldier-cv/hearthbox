@@ -17,12 +17,15 @@
 
 具体任务、范围和提交标准见 `docs/bootstrap.md`。
 
-- [ ] `loop`、`input`、`display`、`audio`、`storage` 模块与单元测试
-- [ ] `defineGame()` 契约实现，`play.html` 宿主页
-- [ ] `fixtures/contract`：几十行的最小夹具，摇杆移动、按键反馈、存档读写，只供平台 CI 使用
-- [ ] PC 浏览器里完整可玩
+- [x] `loop`、`input`、`display`、`audio`、`storage` 模块与单元测试
+- [x] `defineGame()` 契约实现，`play.html` 宿主页
+- [x] `fixtures/contract`：几十行的最小夹具，摇杆移动、按键反馈、存档读写，只供平台 CI 使用
+- [x] PC 浏览器里完整可玩
 
 退出标准：契约夹具在 PC 上以 60fps 运行，刷新页面后存档还在。
+
+> 已交付，并在此之上补了三层输入（手柄/键盘/指针）与金手指、调试口子。
+> 见 `docs/input.md`、`docs/pointer.md`、`docs/cheats.md`。
 
 ## M2 · 包与货架协议
 
