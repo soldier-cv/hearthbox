@@ -61,7 +61,7 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-平台自己的 `.github/workflows/ci.yml` 只在 PR、`v*` tag 和手动运行时跑；普通 push 不构建。
+平台 CI 在 PR、push 到 `main`、手动运行时校验，并上传壳（`apps/shell/dist`）和演示游戏包供下载；打 `v*` tag 由 `.github/workflows/release.yml` 生成 Release 资产：`hearthbox-shell-<tag>.zip`（Windows/浏览器用的静态壳）+ `hearthbox-demo-<tag>.hbx` + 校验和。Android TV 的 APK 还没进 CI——`native/android` 属于 M4，工程还不存在。
 
 | 你的游戏是                     | 看哪份                                              |
 | ------------------------------ | --------------------------------------------------- |

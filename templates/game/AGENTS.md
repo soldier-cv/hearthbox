@@ -82,6 +82,8 @@ pnpm dev
 
 ## 发布
 
+`.github/workflows/ci.yml` 在 PR、push 到默认分支、手动运行时构建，`.hbx` 作为运行产物上传。
+
 `.github/workflows/release.yml` 只在打 `v*` tag 或手动运行时构建，不在每次 push 时跑：
 
 ```bash

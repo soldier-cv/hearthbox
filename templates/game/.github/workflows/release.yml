@@ -32,6 +32,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 取平台
         env:
@@ -95,6 +97,9 @@ jobs:
             fi
           fi
           echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"
+
+      - name: 类型检查
+        run: pnpm typecheck
 
       - name: 构建并打包
         run: |

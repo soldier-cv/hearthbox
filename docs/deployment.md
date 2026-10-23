@@ -100,18 +100,23 @@ APK 侧载更新会保留应用数据（origin 不变，见 decisions.md D3）�
 
 ## 8. CI（GitHub Actions）
 
-每次推送与 PR：
+**现在实际在跑的**（`.github/workflows/ci.yml`，PR / push 到 `main` / 手动）：
 
 1. `pnpm install --frozen-lockfile`
 2. lint + typecheck + unit test
-3. 构建所有包
+3. `pnpm demo` 把演示游戏放进壳，再 `pnpm build`
 4. Playwright 端到端（用伪造输入源，不需要真手柄）
-5. `assembleDebug` 验证 Android 工程可编译
+5. 上传产物：`apps/shell/dist`（静态壳）与演示 `.hbx`
 
-打 tag 时：
+打 `v*` tag 时（`.github/workflows/release.yml`）：
 
-- 构建并签名 release APK，附到 GitHub Release
-- 运行 `hbx publish` 发布 catalog（签名密钥来自仓库 secret）
+- 重跑上面的检查，构建壳的 zip 与演示 `.hbx`，附到 GitHub Release，并生成 SHA256SUMS
+
+**还没做的**（等对应里程碑）：
+
+- `assembleDebug` / 签名 release APK：`native/android` 是 M4 的产物，目前工程不存在，CI 无法构建 APK
+- Windows `.exe`：Tauri 壳不在 v1 计划里，v1 的 Windows 形态是可安装 PWA（M5 补 Service Worker 与 manifest）
+- `hbx publish` 发布 catalog（签名密钥来自仓库 secret）：M2
 
 ## 9. 明确不做的事
 

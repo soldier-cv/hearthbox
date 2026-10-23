@@ -1,0 +1,110 @@
+name: Release
+
+# 平台发布产物：壳的静态站点（Windows/浏览器用）+ 演示游戏包。
+# Android TV 的 APK 还没有：native/android 属于 M4，工程不存在时这里不构建它。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布标签，留空则用当前 ref'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 确定发布标签
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag="$GITHUB_REF_NAME"
+          fi
+          case "$tag" in
+            v*) ;;
+            *)
+              echo "发布标签必须以 v 开头，收到：$tag" >&2
+              exit 1
+              ;;
+          esac
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 发布前跑完整的四件套 + 端到端，避免把红的提交发出去。
+      - name: 静态检查
+        run: pnpm lint
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 构建演示游戏
+        run: pnpm demo
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 安装浏览器
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 端到端测试
+        run: pnpm exec playwright test --reporter=line
+
+      - name: 打包产物
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          pnpm pack:game demo "release/hearthbox-demo-${RELEASE_TAG}.hbx"
+          (cd apps/shell/dist && zip -qr "$GITHUB_WORKSPACE/release/hearthbox-shell-${RELEASE_TAG}.zip" .)
+          (cd release && sha256sum ./* > SHA256SUMS.txt)
+          ls -lh release
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ env.RELEASE_TAG }}
+          path: release/
+          retention-days: 30
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release/* --clobber
+          elif git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            gh release create "$RELEASE_TAG" release/* --generate-notes --verify-tag
+          else
+            gh release create "$RELEASE_TAG" release/* --generate-notes --target "$GITHUB_SHA"
+          fi

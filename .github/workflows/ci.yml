@@ -1,12 +1,12 @@
 name: CI
 
-# 只在 PR 和手动触发时跑，不在每次 push 时构建。
-# 发布构建由游戏仓库的 tag 流水线负责，平台这里只做校验。
+# 校验每次改动，并把可下载的构建产物挂到这次运行上。
+# 正式发布走 release.yml（v* tag），这里只产出可检查的壳与演示游戏包。
 on:
   pull_request:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -45,11 +45,30 @@ jobs:
       - name: 单元测试
         run: pnpm test
 
+      # 先把演示游戏放进壳的 public 目录，再构建壳；
+      # 否则 dist 里只有空货架，产物拿到手也玩不了。
+      - name: 构建演示游戏
+        run: pnpm demo
+
       - name: 构建
         run: pnpm build
 
       - name: 打包演示游戏
         run: pnpm pack:game demo "${RUNNER_TEMP}/hearthbox-demo.hbx"
+
+      - name: 上传壳产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearthbox-shell
+          path: apps/shell/dist/
+          retention-days: 7
+
+      - name: 上传演示游戏包
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearthbox-demo-hbx
+          path: ${{ runner.temp }}/hearthbox-demo.hbx
+          retention-days: 7
 
       - name: 安装浏览器
         run: pnpm exec playwright install --with-deps chromium

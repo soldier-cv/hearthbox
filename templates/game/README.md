@@ -34,7 +34,11 @@ cd ../hearthbox && pnpm dev
 
 ## 发布
 
-游戏仓库带 `.github/workflows/release.yml`。它只在**打 tag 或手动运行**时构建，不在每次 push 时跑：
+游戏仓库带两个工作流。
+
+`.github/workflows/ci.yml` 在 PR、push 到默认分支、手动运行时构建，`.hbx` 会作为这次运行的产物上传，方便直接下载试装。
+
+`.github/workflows/release.yml` 只在**打 tag 或手动运行**时构建，不在每次 push 时跑：
 
 ```bash
 git tag v1.0.0
