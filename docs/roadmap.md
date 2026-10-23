@@ -30,6 +30,7 @@
 ## M2 · 包与货架协议
 
 > 已可用（试验）：`pnpm pack:game` 生成 `.hbx`；`/import.html` 从文件/URL/GitHub Release 安装；已安装游戏可删除。未签名、无 catalog、无自动更新与回滚。
+> 游戏仓库的 `release.yml` 只在 tag/手动运行时构建；平台自己的 `ci.yml` 只在 PR/tag/手动运行时跑。
 
 - [ ] `.hbx` 打包、sha256、Ed25519 签名与验签
 - [ ] 安装、卸载、更新、回滚的事务实现与失败注入测试

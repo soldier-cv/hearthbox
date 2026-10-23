@@ -1,0 +1,116 @@
+name: Release .hbx
+
+# 只在打 tag 或手动运行时构建，不在每次 push 时构建。
+# 手动运行时默认用 v<game.json version> 作为发布标签。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '发布标签；留空则用 v<game.json version>'
+        required: false
+        default: ''
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  # 平台仓库。SDK 还没发布到 npm 时，构建机需要它来拿到 SDK 和打包器。
+  HEARTHBOX_REPO: soldier-cv/hearthbox
+  HEARTHBOX_REF: main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 取平台
+        env:
+          HEARTHBOX_TOKEN: ${{ secrets.HEARTHBOX_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${HEARTHBOX_TOKEN:-}" ]; then
+            git clone --depth 1 --branch "$HEARTHBOX_REF" \
+              "https://x-access-token:${HEARTHBOX_TOKEN}@github.com/${HEARTHBOX_REPO}.git" ../hearthbox
+          else
+            git clone --depth 1 --branch "$HEARTHBOX_REF" \
+              "https://github.com/${HEARTHBOX_REPO}.git" ../hearthbox
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 构建平台 SDK
+        run: |
+          set -euo pipefail
+          cd ../hearthbox
+          pnpm install --frozen-lockfile
+          pnpm --filter @hearthbox/sdk build
+
+      - name: 安装游戏依赖
+        run: |
+          set -euo pipefail
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            pnpm install
+          fi
+
+      - name: 校验版本并确定发布标签
+        run: |
+          set -euo pipefail
+          version=$(node -e "const fs=require('fs');console.log(JSON.parse(fs.readFileSync('game.json','utf8')).version)")
+          tag="${{ github.event.inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag="v${version}"
+          fi
+          if [ "$tag" != "v${version}" ]; then
+            echo "发布标签 ${tag} 与 game.json 版本 v${version} 不一致" >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
+            echo "tag ${GITHUB_REF_NAME} 与 game.json 版本 ${tag} 不一致" >&2
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            current=$(git rev-parse HEAD)
+            tagged=$(git rev-parse "$tag^{commit}")
+            if [ "$current" != "$tagged" ]; then
+              echo "当前提交不是 tag ${tag} 指向的提交" >&2
+              exit 1
+            fi
+          fi
+          echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"
+
+      - name: 构建并打包
+        run: |
+          set -euo pipefail
+          pnpm build
+          node ../hearthbox/scripts/pack-game.mjs .
+
+      - name: 发布 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" ./*.hbx --clobber
+          elif git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            gh release create "$RELEASE_TAG" ./*.hbx --generate-notes
+          else
+            gh release create "$RELEASE_TAG" ./*.hbx --generate-notes --target "$GITHUB_SHA"
+          fi

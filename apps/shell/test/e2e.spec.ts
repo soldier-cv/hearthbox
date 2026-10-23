@@ -200,6 +200,32 @@ test('导入 .hbx 后能从货架启动', async ({ page }) => {
   await expect(imported).toHaveCount(0);
 });
 
+test('存档能在本机导出和导入', async ({ page }) => {
+  const envelope = {
+    format: 'hearthbox-save',
+    formatVersion: 1,
+    gameId: 'test.imported',
+    gameVersion: '1.0.0',
+    savedAt: new Date().toISOString(),
+    data: { state: { level: 3 } },
+  };
+
+  await page.goto(
+    '/saves.html?id=test.imported&name=%E5%AF%BC%E5%85%A5%E6%B5%8B%E8%AF%95&version=1.0.0',
+  );
+  await page.setInputFiles('#file', {
+    name: 'save.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(envelope)),
+  });
+  await expect(page.locator('#status')).toContainText('已导入 1 个键');
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出当前存档' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toContain('test.imported');
+});
+
 test('设置与成就是同一套声明，按归属分开', async ({ page }) => {
   await launch(page);
   await expect(page.locator('#menu-btn')).toBeVisible();

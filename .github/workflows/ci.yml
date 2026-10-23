@@ -1,0 +1,68 @@
+name: CI
+
+# 只在 PR 和手动触发时跑，不在每次 push 时构建。
+# 发布构建由游戏仓库的 tag 流水线负责，平台这里只做校验。
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 静态检查
+        run: pnpm lint
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 打包演示游戏
+        run: pnpm pack:game demo "${RUNNER_TEMP}/hearthbox-demo.hbx"
+
+      - name: 安装浏览器
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 端到端测试
+        run: pnpm exec playwright test --reporter=line
+
+      - name: 上传失败现场
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

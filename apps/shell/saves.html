@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="导出或导入本机游戏存档。" />
+    <title>Hearthbox · 存档</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23110e0c'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23e8a15a'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="import-page">
+    <main class="import-shell">
+      <header class="shelf-head">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">Hearthbox</p>
+            <h1>存档</h1>
+          </div>
+        </div>
+        <p id="game-name" class="subtitle"></p>
+      </header>
+
+      <section class="import-box">
+        <p class="hint import-note">
+          存档只存在这台设备的浏览器里，不上云。导出文件可以自己备份、换设备，或发给朋友；
+          导入会覆盖当前游戏的全部存档，建议先导出备份。
+        </p>
+
+        <div class="save-actions">
+          <button id="export" type="button">导出当前存档</button>
+          <label class="save-import">
+            导入存档
+            <input id="file" type="file" accept=".json,application/json" />
+          </label>
+        </div>
+
+        <p id="status" class="import-status" role="status"></p>
+      </section>
+
+      <footer class="shelf-foot">
+        <a href="/index.html">返回货架</a>
+      </footer>
+    </main>
+    <script type="module" src="/src/saves-page.ts"></script>
+  </body>
+</html>

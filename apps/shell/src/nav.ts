@@ -7,7 +7,7 @@ import type { PadState } from '@hearthbox/sdk';
  * 但电视上的"当前项"由 data-active 表示，不依赖 Tab。
  */
 
-export type NavKey = 'up' | 'down' | 'left' | 'right' | 'accept' | 'back';
+export type NavKey = 'up' | 'down' | 'left' | 'right' | 'accept' | 'back' | 'select';
 
 /** 摇杆过这个值才算拨了一下。回中附近的噪声不应移动选择。 */
 const TILT = 0.55;
@@ -38,6 +38,7 @@ export function createNavTracker(): NavTracker {
 
     if (pad.pressed('south') || pad.pressed('start')) key = 'accept';
     else if (pad.pressed('east')) key = 'back';
+    else if (pad.pressed('select')) key = 'select';
     else if (pad.pressed('up')) key = 'up';
     else if (pad.pressed('down')) key = 'down';
     else if (pad.pressed('left')) key = 'left';

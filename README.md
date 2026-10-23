@@ -15,6 +15,7 @@ Hearthbox 是一个**手柄优先**的自制游戏平台：一个"主机壳" + �
 M1（运行时内核 + SDK v0）已完成：演示游戏能在 PC 浏览器里用手柄、键盘或鼠标操作，存档刷新后保留。
 货架、系统菜单、金手指/设置/成就面板都能只用方向键 + A/B 走完。
 本地 `.hbx` / URL / GitHub Release 导入已经可用，但**未签名、未沙箱**；catalog、签名、自动更新还没做。
+存档只在本机 IndexedDB，不上云；货架卡片上的「存档」可以导出/导入 JSON。
 
 M0 的真机实测与后续里程碑见 [docs/roadmap.md](docs/roadmap.md)。
 
@@ -35,8 +36,9 @@ pnpm typecheck  # 全包类型检查
 5. 菜单里用方向键选，`A` / `Enter` 确认，`B` / `Esc` 返回。金手指/设置/成就面板里：上下选行，左右改值，`A` 切换。
 6. 退出：菜单里选「退出游戏」，回到货架。
 7. 导入别人的游戏：`pnpm pack:game ../my-game` 生成 `.hbx`，打开 `/import.html` 选择文件，或填 GitHub 仓库 / `.hbx` 地址。安装后货架出现「已安装」卡片，旁边有「删除」。
-8. 手柄检测：打开 `/pads.html`，插上手柄按任意键，查看 id、mapping、轴和按键的实时值。
-9. 崩溃页：打开 `/play.html?id=nope&base=%2Fnope`，应看到错误信息和「返回货架」。
+8. 存档：货架卡片点「存档」，导出/导入本机 JSON；导入会整体替换该游戏的存档，建议先导出备份。
+9. 手柄检测：打开 `/pads.html`，插上手柄按任意键，查看 id、mapping、轴和按键的实时值。
+10. 崩溃页：打开 `/play.html?id=nope&base=%2Fnope`，应看到错误信息和「返回货架」。
 
 当前开发期仍从工作区兄弟目录扫描源码游戏；玩家侧可导入 `.hbx`。catalog、签名、自动更新和沙箱还没做，导入只面向你信任的作者。
 
@@ -51,6 +53,15 @@ pnpm pack:game ../my-game          # 生成 my-game-1.0.0.hbx
 ```
 
 打开 `/import.html`，选择 `.hbx`，或填 GitHub 仓库地址/`.hbx` 直链。GitHub 仓库会取最新 Release 里的 `.hbx` 资产；没有 Release 就先用上面的命令打一个。
+
+游戏仓库自带 `.github/workflows/release.yml`：打 `v*` tag 或手动运行才会构建，不是每次 push 都跑。构建出的 `.hbx` 会挂到 Release，导入页填仓库地址就能拿到。
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+平台自己的 `.github/workflows/ci.yml` 只在 PR、`v*` tag 和手动运行时跑；普通 push 不构建。
 
 | 你的游戏是                     | 看哪份                                              |
 | ------------------------------ | --------------------------------------------------- |
@@ -75,6 +86,7 @@ Unity/Godot/原生工程不能直接加载：入口必须是单个 `game.js`（E
 | [local-dev.md](docs/local-dev.md)               | 在本机跑自己的游戏                  |
 | [game-sdk.md](docs/game-sdk.md)                 | 游戏开发契约：生命周期、ctx API     |
 | [package-format.md](docs/package-format.md)     | 游戏包、catalog、签名、安装流程     |
+| [saves.md](docs/saves.md)                       | 存档只在本机：存储、更新、导出/导入 |
 | [deployment.md](docs/deployment.md)             | 开发环境、ZeroTier、公网 HTTPS 部署 |
 | [compatibility.md](docs/compatibility.md)       | 兼容基线、性能预算、设备矩阵        |
 | [roadmap.md](docs/roadmap.md)                   | 里程碑与验收标准                    |

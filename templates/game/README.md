@@ -32,6 +32,20 @@ cd ../hearthbox && pnpm dev
 
 货架里就会出现你的游戏。
 
+## 发布
+
+游戏仓库带 `.github/workflows/release.yml`。它只在**打 tag 或手动运行**时构建，不在每次 push 时跑：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+工作流会构建 `.hbx` 并挂到 GitHub Release。平台的导入页填仓库地址，会取最新 Release 里的 `.hbx`。
+
+- 工作流里的 `HEARTHBOX_REPO` 默认指向 `soldier-cv/hearthbox`，用来拿 SDK 和打包器；平台是私有仓库时，在游戏仓库加 `HEARTHBOX_TOKEN` secret。
+- Gitee 不运行 GitHub Actions。可以把仓库镜像到 GitHub，或在 Gitee Go 里执行同样的 `pnpm build` + `node .../pack-game.mjs .`，再把 `.hbx` 挂到 Gitee Release；导入页也可以直接填 `.hbx` 直链。
+
 ## 里面有什么
 
 ```

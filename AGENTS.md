@@ -267,6 +267,7 @@ function addOne(n: number): number {
 | `docs/game-sdk.md`         | 游戏契约：生命周期、ctx API    |
 | `docs/game-conformance.md` | 类型、脚手架、打包校验三道约束 |
 | `docs/package-format.md`   | `.hbx`、catalog、签名、安装    |
+| `docs/saves.md`            | 存档只在本机：存储、导出/导入  |
 | `docs/input.md`            | 三层输入、映射、M0 实测清单    |
 | `docs/pointer.md`          | 鼠标与触控：坐标换算、指针外观 |
 | `docs/cheats.md`           | 金手指与调试口子               |

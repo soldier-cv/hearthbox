@@ -113,3 +113,5 @@ hbx publish   # 上传 .hbx 与 catalog 到目标（S3/R2/SSH 可配置）
 ```
 
 私钥路径通过环境变量 `HBX_SIGNING_KEY` 传入，不进仓库。这条命令的顺滑程度决定以后做不做下一个游戏，优先打磨。
+
+游戏仓库的 GitHub Actions 模板在 `templates/game/.github/workflows/release.yml`：只在 `v*` tag 或手动运行时构建，产出 `.hbx` 挂到 GitHub Release。平台的导入页填仓库地址，会取最新 Release 的 `.hbx`；Gitee 需要镜像到 GitHub 或在 Gitee Go 里执行同样的构建与打包命令。

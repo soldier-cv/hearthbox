@@ -32,6 +32,15 @@ function enter(entry: GameEntry): void {
   location.assign(`/play.html?${query.toString()}`);
 }
 
+function openSaves(entry: GameEntry): void {
+  const query = new URLSearchParams({
+    id: entry.id,
+    name: entry.name,
+    version: entry.version ?? '',
+  });
+  location.assign(`/saves.html?${query.toString()}`);
+}
+
 const GameCard: FunctionComponent<{
   entry: GameEntry;
   focused: boolean;
@@ -72,6 +81,17 @@ const GameCard: FunctionComponent<{
         }}
       >
         开始
+      </button>
+      <button
+        type="button"
+        class="card-save"
+        tabIndex={-1}
+        onClick={(event) => {
+          event.stopPropagation();
+          openSaves(entry);
+        }}
+      >
+        存档
       </button>
       {onRemove && (
         <button
@@ -148,6 +168,11 @@ const Shelf: FunctionComponent = () => {
         if (step.key === 'accept') {
           const entry = entriesRef.current[focusedRef.current];
           if (entry) enter(entry);
+          return;
+        }
+        if (step.key === 'select') {
+          const entry = entriesRef.current[focusedRef.current];
+          if (entry) openSaves(entry);
           return;
         }
         if (

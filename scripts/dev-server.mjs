@@ -86,6 +86,7 @@ function shelfEntry(game) {
     summary: String(manifest.summary ?? manifest.id ?? game.name),
     inputs: Array.isArray(manifest.input) ? manifest.input : ['pad'],
     base: `/play/${game.name}`,
+    version: String(manifest.version ?? ''),
   };
 }
 

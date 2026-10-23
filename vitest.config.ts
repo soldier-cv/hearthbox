@@ -10,6 +10,7 @@ export default defineConfig({
     include: [
       'packages/*/test/**/*.test.ts',
       'apps/*/test/**/*.test.ts',
+      'apps/*/unit/**/*.test.ts',
       'tools/*/test/**/*.test.ts',
     ],
     passWithNoTests: true,

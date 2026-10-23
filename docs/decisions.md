@@ -142,5 +142,5 @@
 
 - **结论**：玩家导入 `.hbx`；GitHub 仓库通过 Release 资产提供 `.hbx`，平台不 clone、不安装依赖、不执行构建脚本。开发期源码仍走工作区目录。
 - **理由**：壳是浏览器/WebView，没有 Node 构建链；在设备上执行陌生仓库的构建脚本等于执行任意代码；构建依赖网络、原生模块和内存，无法保证可复现。
-- **当前实现**：`scripts/pack-game.mjs` 打包；`/import.html` 支持本地文件、`.hbx` URL、GitHub 最新 Release；安装到 IndexedDB；货架启动；可删除。导入的包未签名、未沙箱。
+- **当前实现**：`scripts/pack-game.mjs` 打包；`/import.html` 支持本地文件、`.hbx` URL、GitHub 最新 Release；安装到 IndexedDB；货架启动；可删除。导入的包未签名、未沙箱。游戏仓库的 `release.yml` 只在 tag/手动运行时构建并发布 Release。
 - **边界**：catalog、签名、自动更新、回滚和沙箱是后续工作；未签名导入只面向受信任来源。

@@ -80,6 +80,17 @@ pnpm dev
 
 调试参数：`play.html?...&debug=1&seed=42&speed=0.5`
 
+## 发布
+
+`.github/workflows/release.yml` 只在打 `v*` tag 或手动运行时构建，不在每次 push 时跑：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+它会构建 `.hbx` 并挂到 GitHub Release。平台导入页填这个仓库地址，就会取最新 Release 的 `.hbx`。工作流默认从 `soldier-cv/hearthbox` 取 SDK 和打包器；平台是私有仓库时加 `HEARTHBOX_TOKEN` secret。Gitee 不跑 GitHub Actions，镜像到 GitHub 或用 Gitee Go 执行同样的 `pnpm build` + `pack-game.mjs`。
+
 ## 游戏契约
 
 这个游戏跑在 Hearthbox 平台上。**平台接管循环、输入、存档、UI 面板**，游戏只写逻辑和绘制。
