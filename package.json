@@ -17,7 +17,7 @@
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "format": "prettier --write .",
-    "demo": "pnpm --filter @hearthbox/demo build && node scripts/build-demo.mjs",
+    "demo": "pnpm --filter @hearthbox/sdk build && pnpm --filter @hearthbox/demo build && node scripts/build-demo.mjs",
     "pack:game": "node scripts/pack-game.mjs"
   },
   "devDependencies": {

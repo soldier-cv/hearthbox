@@ -182,6 +182,8 @@ function createGateway() {
 }
 
 try {
+  // 干净检出时 SDK 还没有 dist，demo 的 import 解析不了；先构建 SDK。
+  await run('pnpm', ['--filter', '@hearthbox/sdk', 'build']);
   await run('pnpm', ['--filter', '@hearthbox/demo', 'build']);
   await run('node', ['scripts/build-demo.mjs']);
 } catch (error) {
