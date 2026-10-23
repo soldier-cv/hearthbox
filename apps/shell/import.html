@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="把别人做好的炉边游戏导入货架。" />
+    <title>Hearthbox · 导入游戏</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23110e0c'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23e8a15a'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body class="import-page">
+    <main class="import-shell">
+      <header class="shelf-head">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">Hearthbox</p>
+            <h1>导入游戏</h1>
+          </div>
+        </div>
+        <p class="subtitle">选择别人做好的 <code>.hbx</code>，装进货架。</p>
+      </header>
+
+      <section class="import-box">
+        <label class="import-field">
+          <span>从文件导入</span>
+          <input id="file" type="file" accept=".hbx,application/zip" />
+        </label>
+
+        <p class="import-divider">或</p>
+
+        <label class="import-field">
+          <span>从网址导入</span>
+          <input
+            id="url"
+            type="url"
+            inputmode="url"
+            placeholder="https://github.com/owner/repo 或 .hbx 地址"
+            autocomplete="off"
+          />
+        </label>
+        <button id="fetch" type="button">下载并安装</button>
+
+        <p id="status" class="import-status" role="status"></p>
+        <p class="hint import-note">
+          当前导入的包不验签、也不在沙箱里运行。只导入你信任的作者。电视上建议先把
+          <code>.hbx</code> 放到 U 盘或下载目录，再用文件选择器导入。
+        </p>
+      </section>
+
+      <footer class="shelf-foot">
+        <a href="/index.html">返回货架</a>
+      </footer>
+    </main>
+    <script type="module" src="/src/import.ts"></script>
+  </body>
+</html>

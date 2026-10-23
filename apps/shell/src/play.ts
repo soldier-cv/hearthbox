@@ -4,11 +4,15 @@ import {
   createLoop,
   createSession,
   createWebBridge,
+  getInstall,
   openStorage,
   parseDebugOptions,
+  readInstalledFile,
+  type Storage,
 } from '@hearthbox/runtime';
 import type { GameDefinition, GameManifest } from '@hearthbox/sdk';
 import { mountOptionPanel } from './cheat-panel.js';
+import { mountSystemMenu, type MenuAction } from './system-menu.js';
 
 /**
  * 游戏宿主页。
@@ -31,15 +35,25 @@ if (!stage || !crash || !crashMessage || !gate || !backButton) {
 
 const params = new URLSearchParams(location.search);
 const gameId = params.get('id') ?? '';
-// 游戏目录。入口固定是 game.js、清单固定是 game.json，
-// 不需要额外两个参数 —— 那些是包格式定死的东西。
+const installed = params.get('source') === 'installed';
+// 开发期游戏的网关目录。已安装游戏从 IndexedDB 读，不使用 base。
 const base = params.get('base') ?? '/demo';
 const entryUrl = `${base}/game.js`;
 const manifestUrl = `${base}/game.json`;
 
+/** 已安装游戏的素材 blob URL，退出时统一撤销。 */
+const assetUrls: string[] = [];
+
+function revokeAssets(): void {
+  for (const url of assetUrls) URL.revokeObjectURL(url);
+  assetUrls.length = 0;
+}
+
 let session: ReturnType<typeof createSession> | null = null;
 /** 金手指面板的挂载点。 */
 const cheatHost = document.querySelector<HTMLElement>('#cheats');
+/** 系统菜单的挂载点。 */
+const menuHost = document.querySelector<HTMLElement>('#menu');
 
 function showCrash(error: unknown): void {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
@@ -58,21 +72,31 @@ backButton.addEventListener('click', () => {
 window.addEventListener('error', (event) => showCrash(event.error ?? event.message));
 window.addEventListener('unhandledrejection', (event) => showCrash(event.reason));
 
-async function loadManifest(): Promise<GameManifest> {
+async function loadManifest(storage: Storage): Promise<GameManifest> {
+  if (installed) {
+    const record = await getInstall(storage, gameId);
+    if (!record) throw new Error(`未安装：${gameId}`);
+    return record.manifest;
+  }
   const response = await fetch(manifestUrl);
   if (!response.ok) throw new Error(`读取 game.json 失败：${response.status}`);
   return (await response.json()) as GameManifest;
 }
 
-async function loadModule(): Promise<GameDefinition> {
+async function loadModule(storage: Storage): Promise<GameDefinition> {
   // 先取文本再建 blob URL：游戏代码绝不经过打包器。
-  // M2 起把 fetch 换成从 IndexedDB 读 Blob，下面的 import 一字不改。
+  // 已安装游戏从 IndexedDB 读同一个 Blob，下面的 import 一字不改。
   //
   // SDK 必须被内联进 game.js（hbx pack 会校验没有裸导入）：
   // blob URL 下 `import '@hearthbox/sdk'` 解析不了，而 import maps 需要 Chromium 89+。
-  const response = await fetch(entryUrl);
-  if (!response.ok) throw new Error(`读取入口失败：${response.status} ${entryUrl}`);
-  const source = await response.text();
+  let source: string;
+  if (installed) {
+    source = await (await readInstalledFile(storage, gameId, 'game.js')).text();
+  } else {
+    const response = await fetch(entryUrl);
+    if (!response.ok) throw new Error(`读取入口失败：${response.status} ${entryUrl}`);
+    source = await response.text();
+  }
 
   const blobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
   try {
@@ -96,12 +120,32 @@ interface Booted {
 }
 
 async function boot(): Promise<Booted> {
-  const manifest = await loadManifest();
+  const storage = await openStorage();
+  const manifest = await loadManifest(storage);
   if (gameId && manifest.id !== gameId) {
     throw new Error(`清单 id 与请求不一致：${manifest.id} !== ${gameId}`);
   }
 
-  const storage = await openStorage();
+  const assetMap = new Map<string, string>();
+  if (installed) {
+    const record = await getInstall(storage, gameId);
+    if (!record) throw new Error(`未安装：${gameId}`);
+    for (const path of record.files) {
+      if (!path.startsWith('assets/')) continue;
+      const blob = await readInstalledFile(storage, gameId, path);
+      const url = URL.createObjectURL(blob);
+      assetUrls.push(url);
+      assetMap.set(path.slice('assets/'.length), url);
+    }
+  }
+
+  const resolveAsset = (path: string): string => {
+    if (!installed) return `${base}/assets/${path}`;
+    const url = assetMap.get(path);
+    if (!url) throw new Error(`素材不存在：${path}`);
+    return url;
+  };
+
   const display = createDisplay({
     width: manifest.display.width,
     height: manifest.display.height,
@@ -138,27 +182,18 @@ async function boot(): Promise<Booted> {
       gate!.hidden = true;
       display.attach(stage!);
 
-      const hudBar = document.querySelector<HTMLElement>('#hud');
-      if (hudBar) hudBar.hidden = false;
-
-      const definition = await loadModule();
+      const definition = await loadModule(storage);
       await instance.start({
         manifest,
         create: definition.create,
-        resolveAsset: (path) => `${base}/assets/${path}`,
+        resolveAsset,
         onExit: () => location.assign('/index.html'),
-        onSystemMenu: () => {
-          // 手柄长按 start+select：优先开金手指，没有则开设置。
-          if (instance.optionsOf('cheat').length > 0) openPanel('cheat');
-          else openPanel('setting');
-        },
+        onSystemMenu: () => openMenu(),
       });
 
-      // 必须等 start() 完成后再刷新：游戏是在 create() 里才 declare 的，
-      // 提前调用会读到空列表，导致面板按钮全部隐藏。
-      refreshHud();
-      // 有的游戏在 create 之后才异步 declare，跟着刷新。
-      instance.onOptionsChange(refreshHud);
+      // 等 start() 完成再显示 HUD：此时游戏已 declare，菜单能列全。
+      const hudBar = document.querySelector<HTMLElement>('#hud');
+      if (hudBar) hudBar.hidden = false;
     },
   };
 }
@@ -184,34 +219,60 @@ function openPanel(scope: 'cheat' | 'setting' | 'status'): void {
   });
 }
 
-const cheatButton = document.querySelector<HTMLButtonElement>('#cheat-btn');
-const settingButton = document.querySelector<HTMLButtonElement>('#setting-btn');
-const statusButton = document.querySelector<HTMLButtonElement>('#status-btn');
-const quitButton = document.querySelector<HTMLButtonElement>('#quit-btn');
-
-cheatButton?.addEventListener('click', () => openPanel('cheat'));
-settingButton?.addEventListener('click', () => openPanel('setting'));
-statusButton?.addEventListener('click', () => openPanel('status'));
-quitButton?.addEventListener('click', () => location.assign('/index.html'));
-
 /**
- * 按游戏实际声明决定哪些按钮可见。
+ * 打开系统菜单。
  *
- * 游戏没有设置项就不该显示"设置"按钮 —— 空面板比没有按钮更糟。
+ * 电视的主路径：长按 start+select（运行时保留输入）或遥控器返回键。
+ * 鼠标点 HUD 的「菜单」也走这里，保证三条路是同一个菜单，不是三套逻辑。
  */
-function refreshHud(): void {
-  const showButton = (
-    button: HTMLButtonElement | null,
-    scope: 'cheat' | 'setting' | 'status',
-  ): void => {
-    if (!button) return;
-    const has = (session?.optionsOf(scope).length ?? 0) > 0;
-    button.hidden = !has;
-  };
-  showButton(cheatButton, 'cheat');
-  showButton(settingButton, 'setting');
-  showButton(statusButton, 'status');
+function openMenu(): void {
+  if (!session || !menuHost || menuHost.hidden === false) return;
+  if (cheatHost && cheatHost.hidden === false) return;
+
+  session.pause();
+  const hudBar = document.querySelector<HTMLElement>('#hud');
+  if (hudBar) hudBar.hidden = true;
+
+  const titles = { cheat: '金手指', setting: '游戏设置', status: '成就与统计' } as const;
+  const actions: MenuAction[] = [
+    {
+      id: 'resume',
+      label: '继续游戏',
+      hint: '回到游戏',
+      run() {
+        if (hudBar) hudBar.hidden = false;
+        session?.resume();
+      },
+    },
+  ];
+
+  for (const scope of ['cheat', 'setting', 'status'] as const) {
+    const count = session.optionsOf(scope).length;
+    if (count > 0) {
+      actions.push({
+        id: scope,
+        label: titles[scope],
+        hint: `${count} 项`,
+        run: () => openPanel(scope),
+      });
+    }
+  }
+
+  actions.push({
+    id: 'quit',
+    label: '退出游戏',
+    hint: '回到货架',
+    run: () => location.assign('/index.html'),
+  });
+
+  mountSystemMenu(menuHost, actions, () => {
+    if (hudBar) hudBar.hidden = false;
+    session?.resume();
+  });
 }
+
+const menuButton = document.querySelector<HTMLButtonElement>('#menu-btn');
+menuButton?.addEventListener('click', openMenu);
 
 /**
  * 第一次输入才启动游戏（音频要用户手势）。
@@ -222,6 +283,19 @@ function refreshHud(): void {
  */
 const ready = boot();
 let started = false;
+
+/**
+ * 键盘与遥控器返回键（WebView 里通常就是 Escape）打开系统菜单。
+ * 面板/菜单打开时它们自己处理返回，这里不能重复开。
+ */
+window.addEventListener('keydown', (event) => {
+  if (event.code !== 'Escape' || !started) return;
+  if (menuHost && menuHost.hidden === false) return;
+  if (cheatHost && cheatHost.hidden === false) return;
+  if (gate && gate.hidden === false) return;
+  event.preventDefault();
+  openMenu();
+});
 
 function begin(): void {
   if (started) return;
@@ -270,9 +344,11 @@ window.addEventListener('beforeunload', () => {
   // 先同步发起写入：等到 stop() 的异步落盘往往已经来不及。
   session?.flushNow();
   void session?.stop().catch(() => {});
+  revokeAssets();
 });
 
 // pagehide 覆盖"切到后台被系统回收"的情况；beforeunload 在部分移动端不触发。
 window.addEventListener('pagehide', () => {
   session?.flushNow();
+  revokeAssets();
 });

@@ -170,8 +170,7 @@ export interface GameContext {
    */
   readonly options: OptionsApi;
   /**
-   * 兼容别名，等价于 `options` 但只暴露金手指常用方法。
-   * 新代码直接用 `ctx.options`。
+   * 金手指常用方法的快捷入口，底层就是 `options`。
    */
   readonly cheats: CheatsApi;
   /**
@@ -218,10 +217,9 @@ export interface Random {
 }
 
 /**
- * 金手指声明（兼容别名）。
+ * 金手指类型的快捷定义。
  *
- * 新代码请用 `OptionDefinition` 配 `scope: 'cheat'`。
- * 这个类型保留是因为已经发布的游戏在用，且它在语义上就是"scope 为 cheat 的可调项"。
+ * 与 `OptionDefinition` 配 `scope: 'cheat'` 等价。
  */
 export type CheatDefinition = BooleanCheat | NumberCheat;
 

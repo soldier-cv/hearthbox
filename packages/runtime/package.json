@@ -26,6 +26,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@hearthbox/sdk": "workspace:*"
+    "@hearthbox/sdk": "workspace:*",
+    "fflate": "0.8.2"
   }
 }

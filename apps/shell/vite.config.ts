@@ -19,6 +19,7 @@ export default defineConfig({
         index: resolve(__dirname, 'index.html'),
         play: resolve(__dirname, 'play.html'),
         pads: resolve(__dirname, 'pads.html'),
+        import: resolve(__dirname, 'import.html'),
       },
     },
   },

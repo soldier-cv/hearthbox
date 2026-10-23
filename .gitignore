@@ -15,7 +15,10 @@ native/android/local.properties
 test-results/
 playwright-report/
 
-# 夹具产物：由 pnpm dev / pnpm fixtures 生成
+# 演示游戏产物：由 pnpm dev / pnpm demo 生成
 apps/shell/public/demo/game.js
 apps/shell/public/demo/game.json
 apps/shell/public/demo/assets/
+
+# 游戏包是构建产物，不进仓库
+*.hbx

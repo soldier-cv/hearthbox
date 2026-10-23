@@ -1,7 +1,15 @@
 import { render, type FunctionComponent } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { OptionDefinition, OptionScope } from '@hearthbox/sdk';
-import type { Session } from '@hearthbox/runtime';
+import {
+  createGamepadSource,
+  createInput,
+  createKeyboardSource,
+  createLoop,
+  type Session,
+} from '@hearthbox/runtime';
+import { createNavTracker } from './nav.js';
+import { actionFor, applyChange } from './panel-nav.js';
 
 /**
  * 可调项面板。
@@ -16,6 +24,8 @@ interface PanelProps {
   scope: OptionScope;
   title: string;
   onClose: () => void;
+  active: number;
+  onHover(index: number): void;
 }
 
 /** 把数值对齐到 step。 */
@@ -110,13 +120,19 @@ const ChoiceRow: FunctionComponent<{
 const OptionRow: FunctionComponent<{
   definition: OptionDefinition;
   session: Session;
-}> = ({ definition, session }) => {
+  active: boolean;
+  onHover: () => void;
+}> = ({ definition, session, active, onHover }) => {
   const current = session.getOption(definition.id);
   const readOnly = (definition.scope ?? 'cheat') === 'status';
 
   if (readOnly) {
     return (
-      <div class="cheat-row cheat-readonly">
+      <div
+        class="cheat-row cheat-readonly"
+        data-active={active ? 'true' : 'false'}
+        onMouseEnter={onHover}
+      >
         <div class="cheat-label">
           <span class="cheat-name">{definition.name}</span>
           <span class="cheat-value">{String(current ?? '')}</span>
@@ -128,34 +144,47 @@ const OptionRow: FunctionComponent<{
 
   if (definition.kind === 'number') {
     return (
-      <NumberRow
-        definition={definition}
-        value={typeof current === 'number' ? current : definition.defaultValue}
-        onChange={(next) => session.setOption(definition.id, next)}
-      />
+      <div class="cheat-slot" data-active={active ? 'true' : 'false'} onMouseEnter={onHover}>
+        <NumberRow
+          definition={definition}
+          value={typeof current === 'number' ? current : definition.defaultValue}
+          onChange={(next) => session.setOption(definition.id, next)}
+        />
+      </div>
     );
   }
 
   if (definition.kind === 'choice') {
     return (
-      <ChoiceRow
-        definition={definition}
-        value={typeof current === 'string' ? current : definition.defaultValue}
-        onChange={(next) => session.setOption(definition.id, next)}
-      />
+      <div class="cheat-slot" data-active={active ? 'true' : 'false'} onMouseEnter={onHover}>
+        <ChoiceRow
+          definition={definition}
+          value={typeof current === 'string' ? current : definition.defaultValue}
+          onChange={(next) => session.setOption(definition.id, next)}
+        />
+      </div>
     );
   }
 
   return (
-    <BooleanRow
-      definition={definition}
-      value={current === true}
-      onChange={(next) => session.setOption(definition.id, next)}
-    />
+    <div class="cheat-slot" data-active={active ? 'true' : 'false'} onMouseEnter={onHover}>
+      <BooleanRow
+        definition={definition}
+        value={current === true}
+        onChange={(next) => session.setOption(definition.id, next)}
+      />
+    </div>
   );
 };
 
-export const OptionPanel: FunctionComponent<PanelProps> = ({ session, scope, title, onClose }) => {
+export const OptionPanel: FunctionComponent<PanelProps> = ({
+  session,
+  scope,
+  title,
+  onClose,
+  active,
+  onHover,
+}) => {
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -174,6 +203,9 @@ export const OptionPanel: FunctionComponent<PanelProps> = ({ session, scope, tit
 
   const items = session.optionsOf(scope);
 
+  // 索引夹住，项数随游戏 declare 变化时不会越界。
+  const activeIndex = items.length === 0 ? 0 : Math.min(active, items.length - 1);
+
   return (
     <div class="cheat-panel" data-scope={scope} data-version={version}>
       <header class="cheat-header">
@@ -186,12 +218,20 @@ export const OptionPanel: FunctionComponent<PanelProps> = ({ session, scope, tit
       {items.length === 0 ? (
         <p class="cheat-empty">这个游戏没有提供{title}。</p>
       ) : (
-        <div class="cheat-list">
-          {items.map((definition) => (
-            <OptionRow key={definition.id} definition={definition} session={session} />
+        <div class="cheat-list" role="listbox" aria-label={title}>
+          {items.map((definition, index) => (
+            <OptionRow
+              key={definition.id}
+              definition={definition}
+              session={session}
+              active={index === activeIndex}
+              onHover={() => onHover(index)}
+            />
           ))}
         </div>
       )}
+
+      <p class="cheat-foot">方向键选择 · 左右改值 · A 切换 · B 返回</p>
     </div>
   );
 };
@@ -204,7 +244,37 @@ export function mountOptionPanel(
   title: string,
   onClosed?: () => void,
 ): () => void {
-  const unmount = (): void => {
+  let active = 0;
+  let closed = false;
+  let loop: ReturnType<typeof createLoop> | null = null;
+  const nav = createNavTracker();
+  const sources = [createGamepadSource(), createKeyboardSource()];
+  for (const source of sources) source.start();
+  const input = createInput({ sources });
+
+  const draw = (): void => {
+    if (closed) return;
+    render(
+      <OptionPanel
+        session={session}
+        scope={scope}
+        title={title}
+        active={active}
+        onHover={(index) => {
+          active = index;
+          draw();
+        }}
+        onClose={close}
+      />,
+      container,
+    );
+  };
+
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    loop?.stop();
+    for (const source of sources) source.stop();
     render(null, container);
     container.hidden = true;
     container.replaceChildren();
@@ -212,18 +282,47 @@ export function mountOptionPanel(
     onClosed?.();
   };
 
+  loop = createLoop({
+    update() {
+      if (closed) return;
+      input.sample();
+      const pad = input.players()[0];
+      if (!pad || !pad.connected) return;
+      const items = session.optionsOf(scope);
+      if (items.length === 0) return;
+      const step = nav.step(pad);
+      if (!step.key) return;
+      active = Math.min(active, items.length - 1);
+      const current = items[active];
+
+      if (step.key === 'up') {
+        active = (active - 1 + items.length) % items.length;
+        draw();
+        return;
+      }
+      if (step.key === 'down') {
+        active = (active + 1) % items.length;
+        draw();
+        return;
+      }
+      if (step.key === 'back') {
+        close();
+        return;
+      }
+      if (!current) return;
+      const change =
+        step.key === 'accept'
+          ? actionFor(current, 'accept')
+          : step.key === 'left' || step.key === 'right'
+            ? actionFor(current, step.key)
+            : null;
+      if (change) applyChange(session, current, change);
+    },
+    render() {},
+  });
+
   container.hidden = false;
-  render(
-    <OptionPanel session={session} scope={scope} title={title} onClose={unmount} />,
-    container,
-  );
-
-  return unmount;
+  draw();
+  loop.start();
+  return close;
 }
-
-/** 兼容旧名。 */
-export const mountCheatPanel = (
-  container: HTMLElement,
-  session: Session,
-  onClosed?: () => void,
-): (() => void) => mountOptionPanel(container, session, 'cheat', '金手指', onClosed);

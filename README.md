@@ -13,7 +13,10 @@ Hearthbox 是一个**手柄优先**的自制游戏平台：一个"主机壳" + �
 ## 状态
 
 M1（运行时内核 + SDK v0）已完成：演示游戏能在 PC 浏览器里用手柄、键盘或鼠标操作，存档刷新后保留。
-M0 的真机实测与 M2 之后的里程碑见 [docs/roadmap.md](docs/roadmap.md)。
+货架、系统菜单、金手指/设置/成就面板都能只用方向键 + A/B 走完。
+本地 `.hbx` / URL / GitHub Release 导入已经可用，但**未签名、未沙箱**；catalog、签名、自动更新还没做。
+
+M0 的真机实测与后续里程碑见 [docs/roadmap.md](docs/roadmap.md)。
 
 ```bash
 pnpm install
@@ -23,8 +26,41 @@ pnpm lint       # ESLint + Prettier
 pnpm typecheck  # 全包类型检查
 ```
 
-`pnpm dev` 会先构建演示游戏再起 Vite。打开页面后按 Enter 或手柄键开始。
-手柄的实际上报值可在 `/pads.html` 查看，用于填写 `docs/m0-findings.md`。
+## 走一遍
+
+1. `pnpm install && pnpm dev`，打开 `http://127.0.0.1:5199`。
+2. 货架：方向键/摇杆移动，`Enter` / `A` / 空格进入；鼠标直接点卡片也可以。
+3. 演示游戏：`WASD` 或方向键移动，`A` 换色，`R` 随机，`Shift` 加速。
+4. 游戏内按 `Esc`，或长按 `Start + Select` 1 秒，打开系统菜单；HUD 右上角的「菜单」也走同一个入口。
+5. 菜单里用方向键选，`A` / `Enter` 确认，`B` / `Esc` 返回。金手指/设置/成就面板里：上下选行，左右改值，`A` 切换。
+6. 退出：菜单里选「退出游戏」，回到货架。
+7. 导入别人的游戏：`pnpm pack:game ../my-game` 生成 `.hbx`，打开 `/import.html` 选择文件，或填 GitHub 仓库 / `.hbx` 地址。安装后货架出现「已安装」卡片，旁边有「删除」。
+8. 手柄检测：打开 `/pads.html`，插上手柄按任意键，查看 id、mapping、轴和按键的实时值。
+9. 崩溃页：打开 `/play.html?id=nope&base=%2Fnope`，应看到错误信息和「返回货架」。
+
+当前开发期仍从工作区兄弟目录扫描源码游戏；玩家侧可导入 `.hbx`。catalog、签名、自动更新和沙箱还没做，导入只面向你信任的作者。
+
+## 把游戏接进来
+
+**开发期（有源码）**：游戏目录放在 `hearthbox/` 旁边，写 `game.json`，构建出 `dist/game.js`；`pnpm dev` 扫描后出现在货架。
+
+**别人做好的游戏（只有构建产物）**：
+
+```bash
+pnpm pack:game ../my-game          # 生成 my-game-1.0.0.hbx
+```
+
+打开 `/import.html`，选择 `.hbx`，或填 GitHub 仓库地址/`.hbx` 直链。GitHub 仓库会取最新 Release 里的 `.hbx` 资产；没有 Release 就先用上面的命令打一个。
+
+| 你的游戏是                     | 看哪份                                              |
+| ------------------------------ | --------------------------------------------------- |
+| 新游戏                         | 从 `templates/game/` 复制，再看 `docs/local-dev.md` |
+| 已有网页游戏（HTML/JS/Canvas） | `docs/porting.md`，按四步改造                       |
+| 已按 SDK 写好，要分享/发布     | `pnpm pack:game` → `/import.html`                   |
+
+Unity/Godot/原生工程不能直接加载：入口必须是单个 `game.js`（ESM、零 import），所以要么先导出 Web 再按 `porting.md` 改造，要么按 SDK 重写。
+
+平台不在设备上编译源码。GitHub 只提供 Release 资产；catalog、签名、更新和沙箱是下一步，当前导入的包不验签，也不在沙箱里运行。
 
 ## 文档
 

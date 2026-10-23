@@ -3,25 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>Hearthbox · 游戏</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23110e0c'/%3E%3Ccircle cx='16' cy='18' r='6' fill='%23e8a15a'/%3E%3C/svg%3E"
+    />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body class="play">
     <div id="stage"></div>
     <div id="hud" class="hud" hidden>
-      <button id="cheat-btn" type="button" class="hud-btn" hidden>金手指</button>
-      <button id="setting-btn" type="button" class="hud-btn" hidden>设置</button>
-      <button id="status-btn" type="button" class="hud-btn" hidden>成就</button>
-      <button id="quit-btn" type="button" class="hud-btn hud-btn-quiet">退出</button>
+      <button id="menu-btn" type="button" class="hud-btn">菜单</button>
     </div>
     <div id="cheats" class="cheat-host" hidden></div>
-    <div id="crash" class="crash" hidden>
-      <h1>游戏崩溃了</h1>
+    <div id="menu" class="menu-host" hidden></div>
+    <div id="crash" class="crash" hidden role="alertdialog" aria-labelledby="crash-title">
+      <p class="eyebrow">Hearthbox</p>
+      <h1 id="crash-title">游戏崩溃了</h1>
       <pre id="crash-message"></pre>
       <button id="back" type="button">返回货架</button>
     </div>
     <div id="gate" class="gate">
-      <p>按任意键或手柄键开始</p>
+      <div class="gate-card">
+        <p class="eyebrow">Hearthbox</p>
+        <p>按任意键或手柄键开始</p>
+        <p class="gate-hint">游戏中按 Esc，或长按 Start + Select 打开菜单</p>
+      </div>
     </div>
     <script type="module" src="/src/play.ts"></script>
   </body>

@@ -129,7 +129,7 @@ function buildContext(deps: ContextDeps): GameContext {
       locale: typeof navigator !== 'undefined' ? navigator.language : 'zh-CN',
     } satisfies PlatformInfo,
     options: options.api,
-    // 兼容别名：老游戏用 ctx.cheats.declare / enabled，指向同一套实现。
+    // 金手指快捷入口：与 options 指向同一套实现。
     cheats: options.api as unknown as CheatsApi,
     random: random,
     debug: deps.debug,
@@ -272,6 +272,8 @@ export function createSession(deps: SessionDeps): Session {
 
     resume() {
       if (!running) return;
+      // 菜单里按下的键不应该在恢复的第一帧变成游戏输入。
+      input?.sample();
       if (loop) loop.paused = false;
       instance?.resume?.();
     },

@@ -40,6 +40,16 @@ export {
 } from './input-source.js';
 export { FIXED_STEP, createLoop, type Loop, type LoopHandlers } from './loop.js';
 export {
+  getInstall,
+  installFromZip,
+  InstallError,
+  listInstalled,
+  PACKAGE_MAX_BYTES,
+  readInstalledFile,
+  uninstallGame,
+  type InstallRecord,
+} from './installer.js';
+export {
   createSession,
   type Session,
   type SessionDeps,

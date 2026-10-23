@@ -1,5 +1,7 @@
 # 包格式与货架
 
+> 当前已实现：本地/URL/GitHub Release 的 `.hbx` 导入、安装到 IndexedDB、从货架启动、删除。未实现：catalog、签名、自动更新、回滚、沙箱。
+
 ## 1. 包（.hbx）
 
 一个游戏包是一个 zip 文件，扩展名 `.hbx`：

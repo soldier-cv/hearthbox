@@ -1,9 +1,14 @@
 :root {
-  --bg: #0b0b0f;
-  --fg: #f2f2f5;
-  --muted: #9a9aa8;
-  --card: #17171f;
-  --accent: #f5a524;
+  --bg: #110e0c;
+  --fg: #f3ece4;
+  --muted: #c4b4a4;
+  --faint: #8f8276;
+  --card: #1c1814;
+  --card-raised: #26201b;
+  --line: #3a322c;
+  --accent: #e8a15a;
+  --accent-ink: #1a120c;
+  --danger: #e7b2a4;
   color-scheme: dark;
 }
 
@@ -22,100 +27,372 @@ body {
     'Segoe UI',
     'Noto Sans SC',
     sans-serif;
-  /* 10-foot：1080p 基准下正文不小于 24px */
+  /* 10-foot：1080p 基准下正文不小于 24px。离线壳不外链字体。 */
   font-size: 24px;
+  line-height: 1.45;
+}
+
+body.shelf-page,
+body.pads-page,
+body.import-page {
+  background:
+    radial-gradient(880px 420px at 0% 0%, rgba(232, 161, 90, 0.1), transparent 62%), var(--bg);
 }
 
 body.play {
   overflow: hidden;
 }
 
-.shelf {
+a {
+  color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+}
+
+a:focus-visible,
+button:focus-visible,
+.game-card:focus-visible {
+  outline: 4px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.skip {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  transform: translateY(-160%);
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  z-index: 40;
+}
+
+.skip:focus {
+  transform: none;
+}
+
+.shelf,
+.pads-page,
+.import-shell {
   min-height: 100vh;
-  /* 5% 安全区，避免过扫描裁切 */
-  padding: 5vmin;
+  /* 5% 安全区，避免老电视过扫描裁切。max() 保证窗口很小时仍有边。 */
+  padding: max(24px, 5vmin);
 }
 
-.shelf h1 {
-  margin: 0 0 0.3em;
-  font-size: 2rem;
-  letter-spacing: 0.05em;
+.import-shell {
+  max-width: 64rem;
 }
 
-.shelf .subtitle {
+.shelf-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 2rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 7px rgba(232, 161, 90, 0.16);
+  flex: none;
+}
+
+.eyebrow {
+  margin: 0 0 0.15rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shelf h1,
+.pads-page h1,
+.crash h1 {
+  margin: 0;
+  font-size: 2.1rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.subtitle,
+.hint {
+  margin: 0;
+  max-width: 36rem;
   color: var(--muted);
-  margin: 0 0 2rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .game-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  /* 百分比放进 auto-fill 的最小值时，列宽会被算成 0，卡片挤成一条。 */
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+@media (min-width: 1100px) {
+  .game-list {
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  }
+}
+
 .game-card {
   background: var(--card);
-  border-radius: 16px;
-  padding: 1.5rem;
+  border-radius: 18px;
+  padding: 1.25rem 1.35rem 1.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  border: 3px solid transparent;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border: 3px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(243, 236, 228, 0.04);
+  min-width: 0;
+  height: 100%;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 .game-card[data-focused='true'] {
   border-color: var(--accent);
-  transform: scale(1.02);
+  background: var(--card-raised);
+  transform: translateY(-2px);
+}
+
+.card-mark {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 14px;
+  background: #2a221c;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.game-card[data-focused='true'] .card-mark {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.card-body {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
 }
 
 .game-card h2 {
-  margin: 0;
-  font-size: 1.2rem;
+  margin: 0 0 0.2rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .game-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 1rem;
+  line-height: 1.4;
 }
 
 .game-card p.inputs {
-  color: var(--accent);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  margin-top: 0.45rem;
+  color: var(--faint);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+}
+
+.game-card.skeleton {
+  min-height: 7.2rem;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--card) 0%, var(--card-raised) 50%, var(--card) 100%);
+  background-size: 200% 100%;
+  animation: shelf-pulse 1.4s ease-in-out infinite;
 }
 
 button {
   font: inherit;
-  font-size: 1rem;
-  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-ink);
   background: var(--accent);
-  color: #101014;
   border: 0;
   border-radius: 999px;
-  padding: 0.6rem 1.6rem;
+  padding: 0.55rem 1.3rem;
   cursor: pointer;
 }
 
-button:focus-visible {
-  outline: 4px solid var(--fg);
-  outline-offset: 3px;
+button:active {
+  transform: translateY(1px);
+}
+
+.card-actions {
+  align-self: flex-end;
+  margin-top: auto;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.card-play {
+  flex: none;
+}
+
+.card-remove {
+  flex: none;
+  background: var(--card-raised);
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0.45rem 0.9rem;
+  border: 2px solid transparent;
+}
+
+.card-remove:hover,
+.card-remove:focus-visible {
+  color: var(--fg);
+  border: 2px solid var(--line);
+}
+
+.game-card:not([data-focused='true']) .card-play {
+  background: var(--card-raised);
+  color: var(--fg);
+}
+
+.shelf-foot {
+  margin-top: 2.5rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+}
+
+.card-tag {
+  margin-left: 0.5rem;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.08rem 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 400;
+  vertical-align: middle;
+}
+
+.import-box {
+  max-width: 44rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.4rem;
+}
+
+.import-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.import-field input {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--fg);
+  background: #14110f;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+}
+
+.import-field input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.import-field input[type='file'] {
+  padding: 0.5rem;
+}
+
+.import-divider {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.import-status {
+  margin: 0;
+  min-height: 1.5em;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.import-status[data-tone='error'] {
+  color: var(--danger);
+}
+
+.import-status[data-tone='success'] {
+  color: var(--accent);
+}
+
+.import-note {
+  margin: 0;
+  max-width: 65ch;
+}
+
+.import-box button {
+  align-self: flex-start;
+}
+
+.notice {
+  max-width: 40rem;
+  padding: 1.2rem 0 1.2rem 1.2rem;
+  border-left: 4px solid var(--accent);
+}
+
+.notice h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.25rem;
+}
+
+.notice p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.notice code,
+.empty code {
+  color: var(--fg);
+  background: #2a221c;
+  padding: 0.05em 0.35em;
+  border-radius: 6px;
 }
 
 .empty {
   color: var(--muted);
-  line-height: 1.7;
-}
-
-.empty code {
-  color: var(--fg);
-  background: #000;
-  padding: 0.1em 0.4em;
-  border-radius: 6px;
+  line-height: 1.6;
+  font-size: 0.95rem;
 }
 
 #stage {
@@ -124,75 +401,162 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 整数倍缩放的信箱必须是纯黑，不能跟壳的暖色混在一起。 */
   background: #000;
 }
 
-.crash {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 8, 10, 0.96);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 10vmin;
-}
-
-/* hidden 必须真的不可见：display:flex 会覆盖 [hidden] 的默认样式。 */
-.crash[hidden],
-.gate[hidden] {
-  display: none;
-}
-
-.crash pre {
-  max-width: 80vw;
-  white-space: pre-wrap;
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
+.crash,
 .gate {
   position: fixed;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  font-size: 0.9rem;
-  color: var(--muted);
+  gap: 1rem;
+  padding: max(24px, 5vmin);
 }
 
-/* ---------- 游戏内 HUD 与金手指面板 ---------- */
+.crash {
+  background: rgba(17, 14, 12, 0.96);
+  text-align: center;
+}
+
+.crash pre {
+  max-width: 70rem;
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--danger);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+}
+
+.gate {
+  background:
+    radial-gradient(520px 240px at 50% 42%, rgba(232, 161, 90, 0.12), transparent 70%), var(--bg);
+}
+
+.gate-card {
+  text-align: center;
+}
+
+.gate-card p:last-child {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
+}
+
+.gate-hint {
+  margin: 0.8rem 0 0;
+  color: var(--faint);
+  font-size: 0.8rem;
+}
+
+.menu-host {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, 5vmin);
+  background: rgba(10, 8, 7, 0.86);
+}
+
+.menu-panel {
+  width: min(560px, 100%);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.3rem 1.4rem 1.2rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.menu-head h2 {
+  margin: 0 0 1rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  text-align: left;
+  background: #14110f;
+  color: var(--fg);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  font-size: 1rem;
+}
+
+.menu-item[data-active='true'] {
+  border-color: var(--accent);
+  background: var(--card-raised);
+}
+
+.menu-label {
+  font-weight: 600;
+}
+
+.menu-hint,
+.menu-foot {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.menu-foot {
+  margin: 0.9rem 0 0;
+}
+
+.menu-foot-quiet {
+  text-align: right;
+}
+
+.menu-back {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-decoration: underline;
+}
 
 .hud {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  top: max(12px, 3vmin);
+  right: max(12px, 3vmin);
   display: flex;
   gap: 8px;
   z-index: 20;
 }
 
-.hud[hidden] {
-  display: none;
-}
-
 .hud-btn {
-  font-size: 0.6rem;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-  background: rgba(245, 165, 36, 0.9);
-  color: #101014;
-  border: 0;
-  cursor: pointer;
-  opacity: 0.35;
-  transition: opacity 120ms;
+  font-size: 0.72rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(17, 14, 12, 0.82);
+  color: var(--fg);
+  border: 2px solid rgba(243, 236, 228, 0.28);
+  opacity: 1;
 }
 
 .hud-btn:hover,
 .hud-btn:focus-visible {
-  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .cheat-host {
@@ -202,56 +566,65 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 8, 10, 0.88);
-}
-
-.cheat-host[hidden] {
-  display: none;
+  padding: max(24px, 5vmin);
+  background: rgba(10, 8, 7, 0.86);
 }
 
 .cheat-panel {
-  background: #17171f;
-  border-radius: 16px;
-  padding: 1.2rem 1.4rem;
-  width: min(560px, 88vw);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.3rem 1.4rem 1.4rem;
+  width: min(640px, 100%);
   max-height: 82vh;
   overflow-y: auto;
-  color: #f2f2f5;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
 .cheat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.9rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .cheat-header h2 {
   margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
 }
 
 .cheat-close {
-  font-size: 0.7rem;
-  padding: 0.3rem 0.8rem;
-  background: #2a2a36;
-  color: #f2f2f5;
-  border-radius: 999px;
-  border: 0;
-  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.9rem;
+  background: var(--card-raised);
+  color: var(--fg);
 }
 
 .cheat-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.55rem;
 }
 
 .cheat-row {
-  background: #0f0f14;
-  border-radius: 10px;
-  padding: 0.65rem 0.8rem;
+  background: #14110f;
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+}
+
+.cheat-slot[data-active='true'] .cheat-row,
+.cheat-row[data-active='true'] {
+  border-color: var(--accent);
+  background: #1b1613;
+}
+
+.cheat-foot {
+  margin: 0.9rem 0 0;
+  color: var(--faint);
+  font-size: 0.72rem;
 }
 
 .cheat-label {
@@ -262,113 +635,138 @@ button:focus-visible {
 }
 
 .cheat-name {
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
 .cheat-value {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.75rem;
-  color: #f5a524;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--accent);
 }
 
-.cheat-desc {
-  margin: 0.25rem 0 0;
-  font-size: 0.66rem;
+.cheat-desc,
+.cheat-empty {
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
   line-height: 1.4;
-  color: #6a6a7a;
+  color: var(--muted);
+}
+
+.cheat-empty {
+  margin: 0;
 }
 
 .cheat-toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.7rem;
   cursor: pointer;
 }
 
+.cheat-toggle input {
+  width: 1.35rem;
+  height: 1.35rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 .cheat-slider {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  margin: 0.5rem 0 0.2rem;
-  accent-color: #f5a524;
+  height: 8px;
+  margin: 0.7rem 0 0.35rem;
+  border-radius: 999px;
+  background: #3a322c;
+  accent-color: var(--accent);
+}
+
+.cheat-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 0;
 }
 
 .cheat-range {
   display: flex;
   justify-content: space-between;
-  font-size: 0.6rem;
-  color: #43435a;
-}
-
-.cheat-empty {
-  margin: 0;
-  font-size: 0.75rem;
-  color: #6a6a7a;
+  font-size: 0.7rem;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
 }
 
 .cheat-choices {
   display: flex;
-  gap: 6px;
-  margin-top: 0.5rem;
+  gap: 8px;
+  margin-top: 0.65rem;
   flex-wrap: wrap;
 }
 
 .cheat-choice {
-  font-size: 0.68rem;
-  padding: 0.28rem 0.7rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid #2a2a36;
-  background: #0f0f14;
-  color: #9a9aa8;
-  cursor: pointer;
+  border: 2px solid var(--line);
+  background: transparent;
+  color: var(--muted);
 }
 
 .cheat-choice[aria-pressed='true'] {
-  background: #f5a524;
-  border-color: #f5a524;
-  color: #101014;
-}
-
-.cheat-readonly .cheat-value {
-  color: #4ade80;
-}
-
-.hud-btn-quiet {
-  background: rgba(154, 154, 168, 0.75);
-  color: #101014;
-}
-
-.pads-page {
-  padding: 2rem;
-}
-
-.pads-page h1 {
-  font-size: 1.4rem;
-}
-
-.pads-page .hint {
-  color: var(--muted);
-  font-size: 0.75rem;
-  line-height: 1.6;
-  max-width: 60ch;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .pad {
   background: var(--card);
-  border-radius: 12px;
-  padding: 1rem;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
   margin-bottom: 1rem;
-  font-size: 0.7rem;
-  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
 }
 
 .pad .axes,
 .pad .buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 0.2rem 1rem;
-  margin-top: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.25rem 1rem;
+  margin-top: 0.7rem;
 }
 
-.pad .value {
+.pad .value,
+.pad .pressed {
   color: var(--accent);
+}
+
+.crash[hidden],
+.gate[hidden],
+.hud[hidden],
+.menu-host[hidden],
+.cheat-host[hidden] {
+  display: none;
+}
+
+@keyframes shelf-pulse {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card,
+  .game-card.skeleton,
+  .skip {
+    animation: none;
+    transition: none;
+  }
 }

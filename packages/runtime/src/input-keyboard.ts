@@ -61,13 +61,40 @@ export function createKeyboardSource(config: KeyboardSourceConfig = {}): InputSo
   /** 自上次 drain 以来按下过的玩家按钮位（含一帧内按下又松开的）。 */
   let tappedMask = 0;
 
+  /**
+   * 面板、菜单这类 DOM 控件要保留浏览器默认行为：Tab 走焦点、Enter/Space 激活。
+   * 游戏画布和空白页面上仍然吞掉，避免方向键滚页面、Enter 误触按钮。
+   */
+  function isUiControl(target: EventTarget | null): boolean {
+    if (typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false;
+    return target.closest('button, a, input, select, textarea, label, [data-nav]') !== null;
+  }
+
+  /**
+   * 只有真正的文本输入才保留方向键默认行为。
+   * 滑杆也吞掉：上下留给面板换行，左右由面板自己改值，
+   * 否则一个 ArrowUp 会同时移动焦点和扳动滑杆。
+   */
+  function isTextEntry(target: EventTarget | null): boolean {
+    if (typeof HTMLElement === 'undefined' || !(target instanceof HTMLElement)) return false;
+    const field = target.closest('input, textarea, [contenteditable]');
+    if (!field) return false;
+    if (field instanceof HTMLTextAreaElement) return true;
+    if (field.hasAttribute('contenteditable')) return true;
+    if (field instanceof HTMLInputElement) {
+      return field.type !== 'range' && field.type !== 'checkbox' && field.type !== 'radio';
+    }
+    return false;
+  }
+
   function onKeyDown(event: Event): void {
     const keyboard = event as KeyboardEvent;
     if (keyboard.repeat) return;
     const code = keyboard.code;
-    // 方向键、空格、Tab 会滚动页面或移动焦点；Enter 会触发默认按钮。壳里都不该发生。
-    if (code.startsWith('Arrow') || code === 'Space' || code === 'Enter' || code === 'Tab') {
-      keyboard.preventDefault?.();
+    if (code.startsWith('Arrow')) {
+      if (!isTextEntry(event.target)) keyboard.preventDefault?.();
+    } else if (code === 'Space' || code === 'Enter' || code === 'Tab') {
+      if (!isUiControl(event.target)) keyboard.preventDefault?.();
     }
 
     heldCodes.add(code);
