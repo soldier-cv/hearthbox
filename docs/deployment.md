@@ -84,7 +84,8 @@ cd native/android
 - 电视遥控器的方向键/确认键在 WebView 里是普通 DOM 键盘事件，平台现有的键盘层会映射成手柄输入。
 - 蓝牙手柄的原生输入桥还没接：Android WebView 没有 Gamepad API，走摇杆要等原生插件。
 - 正式包允许明文 HTTP（`usesCleartextTraffic` + `allowMixedContent`），用于从局域网 NAS 导入 `.hbx`；不接 HTTP 源时可以收紧。
-- 签名：CI 在没有 keystore secret 时产出 debug APK（可直接侧载）；有 `ANDROID_KEYSTORE_BASE64` 等 secret 时构建签名的 release APK。签名私钥不入库。
+- 签名：CI 在没有 keystore secret 时产出 debug APK（可直接侧载）；有 `ANDROID_KEYSTORE_BASE64` 等 secret 时构建签名的 release APK。
+- keystore 放在**工作区根目录**的 `.keys/`（`hearthbox-projects/.keys/`），不在任何 git 仓库里。本地签名构建用 `pnpm android:release`，它读取 `.keys/keystore.properties`；CI 用 GitHub Secrets 里的同名字段。**这个文件和密码要备份，丢了就无法给已安装的用户发覆盖升级包。**
 
 ## 7. Windows
 

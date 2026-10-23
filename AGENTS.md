@@ -257,6 +257,7 @@ function addOne(n: number): number {
 - Windows 壳固定 `useHttpsScheme: true`（origin `https://tauri.localhost`）；Android 壳固定 `androidScheme: https`（origin `https://localhost`）。原生壳只打包 `apps/shell/dist`，不复制平台源码。
 - Android 的 `minSdk` 是 24、`targetSdk`/`compileSdk` 是 36；兼容基线还要求系统 WebView ≥ Chromium 87。遥控器方向键走 DOM 键盘事件；蓝牙手柄的原生输入桥还没接。
 - Windows 壳依赖 WebView2 Runtime（Win11 自带，Win10 由安装包补装）。安装包/绿色版都没有代码签名，SmartScreen 提示是预期行为。
+- Android 的签名 keystore 放在工作区根目录的 `.keys/`（不在 `hearthbox/` 仓库里），本地用 `pnpm android:release` 构建签名 APK；CI 走 `ANDROID_KEYSTORE_*` secrets。私钥丢了就无法覆盖升级已安装的应用，必须备份。
 - 新依赖先对照 `docs/compatibility.md` 第 6 节。已确定的运行时依赖只有：Preact、fflate、`@noble/hashes`、`@noble/curves`（后两个 M2 才加）。IndexedDB 封装是自己写的，没引 `idb`。
 - 工具链版本精确锁定在 `package.json`。文件名全小写加连字符；一个文件一个主要导出；不写 barrel `index.ts`。
 - 注释只解释为什么。提交信息用约定式前缀（`feat:` `fix:` `docs:` `test:` `chore:`），主题用中文。
