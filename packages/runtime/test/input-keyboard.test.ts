@@ -51,6 +51,23 @@ describe('createKeyboardSource', () => {
     expect(t.pad.buttons).toBe(0);
     source.stop();
   });
+
+  it('Android WebView 只有 key、没有 code 时仍能映射', () => {
+    const target2 = new FakeTarget();
+    const source = createKeyboardSource({ target: target2 });
+    source.start();
+
+    dispatchKey(target2, 'keydown', '', false, 'Enter');
+    const t = target();
+    source.drain(t);
+
+    expect(t.keyboard.held.has('Enter')).toBe(true);
+    expect(t.pad.buttons & (1 << 10)).toBe(1 << 10);
+
+    dispatchKey(target2, 'keyup', '', false, 'Enter');
+    source.stop();
+  });
+
   it('J 是 south，Enter 是 start', () => {
     const target2 = new FakeTarget();
     const source = createKeyboardSource({ target: target2 });
@@ -128,6 +145,21 @@ describe('键盘 + 汇总层', () => {
 
     const p1 = input.players()[0]!;
     expect(p1.connected).toBe(true);
+    expect(p1.pressed('up')).toBe(true);
+    expect(input.keyboard().held('ArrowUp')).toBe(true);
+    source.stop();
+  });
+
+  it('Android 遥控器方向键（code 为空）也能移动 p1', () => {
+    const target2 = new FakeTarget();
+    const source = createKeyboardSource({ target: target2 });
+    const input = createInput({ sources: [source] });
+    source.start();
+
+    dispatchKey(target2, 'keydown', '', false, 'ArrowUp');
+    input.sample();
+
+    const p1 = input.players()[0]!;
     expect(p1.pressed('up')).toBe(true);
     expect(input.keyboard().held('ArrowUp')).toBe(true);
     source.stop();

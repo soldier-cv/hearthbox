@@ -20,9 +20,8 @@
 
 ```
 ┌──────────────────────── 壳 Shell（每个平台一个，薄） ────────────────────────┐
-│  Android TV: Capacitor WebView  origin = https://localhost                      │
-│  Windows:    PWA（Chrome/Edge） origin = https://play.<domain>                  │
-│  （以后）    Tauri              origin = https://tauri.localhost                │
+│  Android TV: Capacitor 8 WebView  origin = https://localhost                    │
+│  Windows:    Tauri 2 + WebView2   origin = https://tauri.localhost              │
 │  职责：提供安全源、全屏窗口、原生输入、屏幕常亮、生命周期事件                 │
 └───────────────────────────────────────┬──────────────────────────────────────┘
                                         │ HostBridge（唯一的平台差异接口）
@@ -42,16 +41,17 @@
 （公网静态托管为主，局域网镜像可选，见 deployment.md）
 ```
 
-## 3. 三种壳
+## 3. 两种壳
 
-| | Android TV | Windows（v1） | Windows（以后） |
-|---|---|---|---|
-| 技术 | Capacitor 8 | 浏览器 PWA | Tauri 2 |
-| Origin | `https://localhost`（默认值，永不修改） | `https://play.<domain>` | `https://tauri.localhost`（`useHttpsScheme: true`） |
-| 平台本体来源 | 打包进 APK | Service Worker 缓存 | 打包进 exe |
-| 手柄来源 | **原生输入桥**（见 input.md） | Gamepad API | Gamepad API |
-| 遥控器/键盘 | 原生桥 + DOM 键盘事件 | DOM 键盘事件 | DOM 键盘事件 |
-| 屏幕常亮 | `FLAG_KEEP_SCREEN_ON` | Screen Wake Lock API | 原生 |
+| | Android TV | Windows |
+|---|---|---|
+| 技术 | Capacitor 8 | Tauri 2 |
+| Origin | `https://localhost`（`androidScheme: https`，永不修改） | `https://tauri.localhost`（`useHttpsScheme: true`，永不修改） |
+| 平台本体来源 | 打包进 APK | 打包进 exe |
+| 手柄来源 | 遥控器方向键走 DOM 键盘事件；蓝牙手柄待原生输入桥 | Gamepad API |
+| 遥控器/键盘 | DOM 键盘事件 | DOM 键盘事件 |
+| 屏幕常亮 | `FLAG_KEEP_SCREEN_ON` | Screen Wake Lock API |
+| 全屏 | 沉浸式系统栏隐藏 | 普通可缩放窗口（1280×720 起）；未做专用全屏键 |
 
 壳之间的全部差异收敛在一个 `HostBridge` 接口里，平台本体只依赖这个接口：
 

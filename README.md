@@ -17,7 +17,26 @@ M1（运行时内核 + SDK v0）已完成：演示游戏能在 PC 浏览器里�
 本地 `.hbx` / URL / GitHub Release 导入已经可用，但**未签名、未沙箱**；catalog、签名、自动更新还没做。
 存档只在本机 IndexedDB，不上云；货架卡片上的「存档」可以导出/导入 JSON。
 
+Windows 与 Android TV 的壳已经能构建：Windows 用 Tauri 2（NSIS 安装包 + 绿色版单文件），Android 用 Capacitor 8（APK，Leanback 入口）。Android 的蓝牙手柄还需要原生输入桥，遥控器方向键已经能用。
+
 M0 的真机实测与后续里程碑见 [docs/roadmap.md](docs/roadmap.md)。
+
+## 装到 Windows / 电视
+
+GitHub Release 里每个 `v*` 版本会带这些资产：
+
+| 资产                                   | 用途                                         |
+| -------------------------------------- | -------------------------------------------- |
+| `hearthbox-windows-<tag>-setup.exe`    | Windows 安装包（当前用户安装，不需要管理员） |
+| `hearthbox-windows-<tag>-portable.exe` | Windows 绿色版单文件                         |
+| `hearthbox-android-<tag>[-debug].apk`  | Android TV 侧载包                            |
+| `hearthbox-shell-<tag>.zip`            | 静态壳，放到任意 HTTPS 静态服务              |
+| `hearthbox-demo-<tag>.hbx`             | 演示游戏包                                   |
+
+- Windows 需要 WebView2 运行时：Windows 11 自带；Windows 10 由安装包自动补装（需要联网）。绿色版不写注册表，只依赖 WebView2。
+- 安装包没有代码签名，SmartScreen 会提示"未知发布者"。
+- Android 需要 Android 8.0（API 24）或更高，系统 WebView 要是 Chromium 87 以上。`adb install -r` 或电视文件管理器侧载，覆盖安装保留存档。
+- 壳的 origin 固定（Windows `https://tauri.localhost`，Android `https://localhost`），不要改，否则 IndexedDB 里的存档和已装游戏会全部丢失。
 
 ```bash
 pnpm install
@@ -106,7 +125,8 @@ hearthbox/
     sdk/              # 游戏开发者依赖的类型与 defineGame()，发布到 npm
     catalog/          # catalog 与包格式的 schema、校验、签名
   native/
-    android/          # Capacitor Android TV 壳 + 原生输入插件
+    windows/          # Tauri 2 壳：NSIS 安装包 + 绿色版 exe
+    android/          # Capacitor 8 Android TV 壳（Leanback 入口、全屏、常亮）
   demo/               # 演示游戏：把平台每项能力都用一遍
   tools/
     hbx/              # CLI：pack / sign / publish / keygen

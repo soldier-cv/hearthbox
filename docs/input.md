@@ -121,11 +121,13 @@ interface PointerState {
 
 系统菜单打开时，游戏的 `update` 暂停，输入只发往菜单。
 
-## 4. Android 原生输入桥（`native/android`）
+## 4. Android 输入（`native/android`）
 
-见 decisions.md D4：Android WebView 中的 Gamepad API 不可靠，原生桥是主要输入路径。
+**现在已经能用的**：电视遥控器/键盘的 `KEYCODE_DPAD_*`、`KEYCODE_ENTER` 由 WebView 生成 DOM 键盘事件，平台的键盘层把它们映射成手柄输入（`p1`）。注意 Android WebView 的事件只有 `KeyboardEvent.key`，`code` 是空串；`input-keyboard.ts` 会把 `Enter`、`ArrowUp` 这类 key 归一化成 code 形状，别只按 `event.code` 判断。
 
-**拦截点**：`MainActivity` 覆写 `dispatchKeyEvent` 和 `dispatchGenericMotionEvent`，交给插件 `HearthInput` 处理。
+**还没做的**：Android WebView 里的 Gamepad API 不可靠（decision D4），蓝牙手柄要接原生桥。下面是原生插件要做的映射，接口已按这个设计留好，但插件本身还没写。
+
+**拦截点**（实现时）：`MainActivity` 覆写 `dispatchKeyEvent` 和 `dispatchGenericMotionEvent`，交给插件 `HearthInput` 处理。
 
 **判断是否是手柄**：`event.source` 包含 `InputDevice.SOURCE_GAMEPAD` 或 `SOURCE_JOYSTICK`。来自遥控器（`SOURCE_DPAD` / `SOURCE_KEYBOARD`）的事件**放行**，让 WebView 正常生成 DOM 键盘事件。
 

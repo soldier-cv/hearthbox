@@ -1,7 +1,7 @@
 name: CI
 
 # 校验每次改动，并把可下载的构建产物挂到这次运行上。
-# 正式发布走 release.yml（v* tag），这里只产出可检查的壳与演示游戏包。
+# 正式发布走 release.yml（v* tag），这里只产出壳（Web / Windows / Android）与演示包。
 on:
   pull_request:
   push:
@@ -85,3 +85,117 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+  windows:
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建演示游戏与壳
+        run: |
+          pnpm demo
+          pnpm build
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/windows/src-tauri -> target
+
+      - name: 构建 Windows 安装包
+        run: pnpm --dir native/windows exec tauri build
+
+      - name: 整理产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifact | Out-Null
+          Copy-Item "native/windows/src-tauri/target/release/bundle/nsis/*-setup.exe" "artifact/hearthbox-windows-setup.exe"
+          Copy-Item "native/windows/src-tauri/target/release/hearthbox.exe" "artifact/hearthbox-windows-portable.exe"
+
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearthbox-windows
+          path: artifact/
+          retention-days: 7
+
+  android:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建演示游戏与壳
+        run: |
+          pnpm demo
+          pnpm build
+
+      - name: 同步 Android 工程
+        run: pnpm --dir native exec cap sync android
+
+      - name: 构建 APK
+        working-directory: native/android
+        run: |
+          set -euo pipefail
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+            ./gradlew assembleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/hearthbox-android.apk"
+          else
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/hearthbox-android-debug.apk"
+          fi
+
+      - name: 上传 Android 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: hearthbox-android
+          path: ${{ runner.temp }}/hearthbox-android*.apk
+          retention-days: 7

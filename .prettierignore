@@ -7,5 +7,10 @@ docs/
 apps/shell/public/fixtures/
 pnpm-lock.yaml
 
+# 原生工具链：Android 工程由 Capacitor 生成，Windows 的 target 是 Cargo 构建目录
+native/android/
+native/windows/src-tauri/target/
+native/windows/src-tauri/gen/
+
 # 根目录说明文件同样是中文表格，重排会产生大量无关 diff
 AGENTS.md

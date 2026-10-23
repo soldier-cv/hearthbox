@@ -20,6 +20,8 @@ export default tseslint.config(
       'coverage/**',
       'test-results/**',
       'playwright-report/**',
+      'native/android/**',
+      'native/windows/src-tauri/target/**',
     ],
   },
   js.configs.recommended,

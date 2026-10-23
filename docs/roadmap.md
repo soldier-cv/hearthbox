@@ -30,7 +30,7 @@
 ## M2 · 包与货架协议
 
 > 已可用（试验）：`pnpm pack:game` 生成 `.hbx`；`/import.html` 从文件/URL/GitHub Release 安装；已安装游戏可删除。未签名、无 catalog、无自动更新与回滚。
-> 游戏仓库的 `release.yml` 只在 tag/手动运行时构建；平台自己的 `ci.yml` 只在 PR/tag/手动运行时跑。
+> 游戏仓库的 `release.yml` 只在 tag/手动运行时构建；平台 `ci.yml` 在 PR、push 到 `main`、手动运行时跑，发版走 `release.yml`（`v*` tag）。
 
 - [ ] `.hbx` 打包、sha256、Ed25519 签名与验签
 - [ ] 安装、卸载、更新、回滚的事务实现与失败注入测试
@@ -50,19 +50,20 @@
 
 ## M4 · Android TV
 
-- [ ] Capacitor 工程、Leanback 启动器入口、横幅图标
-- [ ] 原生输入插件接入 runtime
-- [ ] 屏幕常亮、返回键行为、生命周期暂停/恢复
-- [ ] 真机热更新开发回路（deployment.md 第 6 节）
+- [x] Capacitor 工程、Leanback 启动器入口、横幅图标
+- [ ] 原生输入插件接入 runtime（蓝牙手柄；遥控器方向键已走 DOM 键盘事件）
+- [x] 屏幕常亮、返回键行为、生命周期暂停/恢复
+- [ ] 真机热更新开发回路（当前是改完重新构建 APK 覆盖安装）
 
 退出标准：电视上从货架安装并游玩演示游戏，断网后仍可启动。
 
 ## M5 · 部署与发布
 
 - [ ] 公网 HTTPS 货架（域名待定）
-- [ ] Windows PWA 可安装、离线可用
-- [ ] GitHub Actions：lint、测试、构建、签名 APK
+- [x] Windows 安装包（NSIS）与绿色版 exe（Tauri 2 + 系统 WebView2）
+- [x] GitHub Actions：lint、测试、构建 Web / Windows / Android 产物（Android 有 keystore secret 时签 release APK）
 - [ ] 签名密钥管理（私钥不进仓库）
+- [ ] Android 签名 release 的密钥接入 CI
 
 退出标准：一台全新的电视，只侧载 APK、不连 ZeroTier，能从公网下载并游玩。
 
@@ -82,5 +83,5 @@
 - 存档导入/导出文件
 - 第二个 SDK 主版本的兼容宿主
 - iframe 沙箱运行第三方游戏
-- Tauri Windows 壳（开机自启、kiosk）
+- Windows 开机自启、kiosk、自动更新
 - 超过 200MB 的包的文件系统存储后端

@@ -36,9 +36,11 @@
 
 **M1 已完成**：运行时内核、SDK v0、货架页、宿主页都能在 PC 浏览器里跑。demo 里的演示游戏能玩，存档刷新后保留。
 
-M0 的真机实测、M2 之后的里程碑都没做，见 `docs/roadmap.md`。不要在 M2 之前建 `packages/catalog`、`tools/hbx`、`native/android`。
+**Windows 与 Android TV 的壳已经落地**：`native/windows`（Tauri 2）产出 NSIS 安装包与绿色版 exe，`native/android`（Capacitor 8）产出 APK。Android 的蓝牙手柄原生输入桥仍是待办；遥控器方向键已经走键盘层。
 
-关键决策见 `docs/decisions.md`（D1–D20）。实现时最容易被忽略的三条：
+M0 的真机实测、M2 之后的里程碑都没做，见 `docs/roadmap.md`。不要在 M2 之前建 `packages/catalog`、`tools/hbx`。
+
+关键决策见 `docs/decisions.md`（D1–D24）。实现时最容易被忽略的三条：
 
 - **画布归平台**（D15）。`Display` 在 `attach` 时取得唯一的 2D 上下文，做好缩放、DPR 与 `imageSmoothingEnabled`。游戏拿到的是 `ctx.ctx2d`，不是可以自己再 `getContext` 的 `HTMLCanvasElement`。WebGL 以后作为可选字段加上。
 - **游戏包自包含**（D16）。`game.js` 不允许任何 `import` 语句，`@hearthbox/sdk` 也内联。包入口在 blob URL 下执行，裸说明符解析不了，而 import maps 需要 Chromium 89+。
@@ -46,7 +48,7 @@ M0 的真机实测、M2 之后的里程碑都没做，见 `docs/roadmap.md`。�
 
 ## 目录
 
-标注「M2 / M4 才创建」的目录，在对应里程碑之前不要建。
+标注「M2 才创建」的目录，在对应里程碑之前不要建。
 
 ```
 hearthbox/
@@ -57,13 +59,14 @@ hearthbox/
     sdk/              # 只有类型和 defineGame()，发布到 npm，零运行时依赖
     catalog/          # schema、校验、签名（M2 才创建）
   native/
-    android/          # Capacitor 工程与原生输入插件（M4 才创建）
+    windows/          # Tauri 2 Windows 壳（安装包 + 绿色版）
+    android/          # Capacitor 8 Android TV 壳（Leanback、全屏、常亮）
   demo/               # 演示游戏：把平台每项能力都用一遍，用来确认平台正常
   templates/
     game/             # 新游戏模板：可跑通的完整链路 + 四份流程文档
   tools/
     hbx/              # CLI：create / dev / pack / sign / publish（M2 才创建）
-  scripts/            # dev-server.mjs（起服务）、build-demo.mjs（构建演示游戏）
+  scripts/            # dev-server.mjs（起服务）、build-demo.mjs（构建演示游戏 + 静态货架）
   docs/               # 架构、决策、契约。进度只改 docs/roadmap.md 的复选框
 ```
 
@@ -89,9 +92,19 @@ pnpm test       # Vitest 单元测试
 pnpm typecheck  # 全包类型检查
 pnpm lint       # ESLint + Prettier
 pnpm build      # 构建全部包
-pnpm demo       # 只重建演示游戏
+pnpm demo       # 重建演示游戏，并生成静态包的 shelf.json
 
 pnpm exec playwright test   # 端到端（会自己起 dev server）
+
+# Windows 壳（需要 Rust 与 WebView2）
+pnpm demo && pnpm build
+pnpm --dir native/windows exec tauri dev      # 开发
+pnpm --dir native/windows exec tauri build    # 安装包 + exe
+
+# Android TV 壳（需要 JDK 21 与 Android SDK）
+pnpm demo && pnpm build
+pnpm --dir native exec cap sync android
+cd native/android && ./gradlew installDebug    # Windows: .\gradlew.bat installDebug
 ```
 
 ## 游戏怎么和这套对接
@@ -241,6 +254,9 @@ function addOne(n: number): number {
 - `packages/runtime` 的循环、输入、渲染是热路径，禁止每帧分配内存。`PadState` 预分配，跨帧复用，调用方不得保存引用。
 - 主循环归平台：固定 60Hz `update(1/60)` + `render(alpha)`。单帧时间上限 250ms，每渲染帧最多 5 次 update，超出丢弃。
 - 不要改任何 origin / scheme（`androidScheme`、hostname、Tauri 的 scheme）。改了等于换域名，IndexedDB 里的存档和已装游戏会丢，见 D3。
+- Windows 壳固定 `useHttpsScheme: true`（origin `https://tauri.localhost`）；Android 壳固定 `androidScheme: https`（origin `https://localhost`）。原生壳只打包 `apps/shell/dist`，不复制平台源码。
+- Android 的 `minSdk` 是 24、`targetSdk`/`compileSdk` 是 36；兼容基线还要求系统 WebView ≥ Chromium 87。遥控器方向键走 DOM 键盘事件；蓝牙手柄的原生输入桥还没接。
+- Windows 壳依赖 WebView2 Runtime（Win11 自带，Win10 由安装包补装）。安装包/绿色版都没有代码签名，SmartScreen 提示是预期行为。
 - 新依赖先对照 `docs/compatibility.md` 第 6 节。已确定的运行时依赖只有：Preact、fflate、`@noble/hashes`、`@noble/curves`（后两个 M2 才加）。IndexedDB 封装是自己写的，没引 `idb`。
 - 工具链版本精确锁定在 `package.json`。文件名全小写加连字符；一个文件一个主要导出；不写 barrel `index.ts`。
 - 注释只解释为什么。提交信息用约定式前缀（`feat:` `fix:` `docs:` `test:` `chore:`），主题用中文。

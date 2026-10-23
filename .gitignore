@@ -19,6 +19,7 @@ playwright-report/
 apps/shell/public/demo/game.js
 apps/shell/public/demo/game.json
 apps/shell/public/demo/assets/
+apps/shell/public/shelf.json
 
 # 游戏包是构建产物，不进仓库
 *.hbx

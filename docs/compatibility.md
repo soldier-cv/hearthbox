@@ -20,9 +20,9 @@
 
 | 平台 | 基线 | 说明 |
 |---|---|---|
-| Android TV | Android 7.0（API 24） | Capacitor 8 的最低版本 |
-| Android WebView | Chromium 87+ | 更低时壳显示"请到应用商店更新 Android System WebView"，不尝试运行 |
-| Windows | Windows 10 21H2 + Edge/Chrome 最新两个大版本 | PWA 形态 |
+| Android TV | Android 8.0（API 24） | Capacitor 8 的最低版本 |
+| Android WebView | Chromium 87+ | 更低版本未适配：壳可能白屏或功能缺失，不提供友好提示（待补） |
+| Windows | Windows 10 21H2+ / Windows 11 + WebView2 | Tauri 2 安装包或绿色版；WebView2 由安装包补装，也可用浏览器访问静态壳 |
 | 手柄 | HID 手柄、XInput 手柄 | 单个设备最多 4 个；DInput 手柄通过校准向导支持 |
 
 不支持：Android 手机/平板（布局未适配，可运行但不承诺）、Tizen、webOS、iOS/tvOS、游戏主机。

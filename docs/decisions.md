@@ -144,3 +144,20 @@
 - **理由**：壳是浏览器/WebView，没有 Node 构建链；在设备上执行陌生仓库的构建脚本等于执行任意代码；构建依赖网络、原生模块和内存，无法保证可复现。
 - **当前实现**：`scripts/pack-game.mjs` 打包；`/import.html` 支持本地文件、`.hbx` URL、GitHub 最新 Release；安装到 IndexedDB；货架启动；可删除。导入的包未签名、未沙箱。游戏仓库的 `release.yml` 只在 tag/手动运行时构建并发布 Release。
 - **边界**：catalog、签名、自动更新、回滚和沙箱是后续工作；未签名导入只面向受信任来源。
+
+
+## D23 Windows 壳用 Tauri 2 + WebView2，交付安装包与绿色版
+
+- **决定**：`native/windows` 是 Tauri 2 壳，前端直接打包 `apps/shell/dist`。交付 NSIS 安装包（当前用户安装，不需要管理员）和绿色版单文件 `hearthbox.exe`。不接自动更新，不做 PWA 主路径。
+- **备选**：Electron（自带 Chromium，安装包和内存都大得多）；PWA（没有独立安装包和卸载入口，Origin 依赖公网域名）；Tauri（复用系统 WebView2）。
+- **理由**：安装包约 1.1MB、exe 几 MB，WebView2 是系统共享组件，内存比 Electron 低一个量级；原生窗口、安装/卸载、快捷方式都是用户预期的桌面体验；Gamepad API 在 WebView2 里可用，和浏览器里调试一致。
+- **代价**：Windows 10 需要 WebView2 Runtime（安装包带 bootstrapper，要联网）；安装包没有 Authenticode 签名，SmartScreen 会提示未知发布者；构建需要 Rust 工具链；自动更新要以后另做。
+- **边界**：窗口 `useHttpsScheme: true`，origin 固定 `https://tauri.localhost`。改成 http 等于换域名，IndexedDB 里的存档和已装游戏会全部丢失（D3）。CSP 允许 `blob:` 脚本和 http/https 连接，因为游戏包从 blob URL 执行、货架要能取局域网源。
+
+## D24 Android TV 壳用 Capacitor 8 + 系统 WebView
+
+- **决定**：`native/android` 是 Capacitor 8 工程，minSdk 24、targetSdk 36，`androidScheme: https`（origin `https://localhost`）。加 Leanback 启动入口、TV banner、沉浸式全屏、`FLAG_KEEP_SCREEN_ON`、返回键走页面历史。遥控器方向键/确认键作为 DOM 键盘事件交给平台的键盘输入层。
+- **备选**：用 Compose 重写整套 UI（等于重做平台）；自己包 WebView（重复 Capacitor 已解决的生命周期、桥接、资源服务）；Cordova（维护状态更差）。
+- **理由**：平台 99% 的代码是 Web，Capacitor 让同一份 `apps/shell/dist` 直接变成 APK；系统 WebView 是共享组件，debug APK 约 4.2MB；官方维护，Gradle 工程可读可改。
+- **代价**：依赖系统 WebView 的版本（Chromium 87 以上，兼容基线见 compatibility.md）；Android WebView 没有 Gamepad API，蓝牙手柄要等原生输入插件；为了从局域网 NAS 导入 `.hbx`，正式包允许明文 HTTP（`usesCleartextTraffic` + `allowMixedContent`）。
+- **边界**：`androidScheme` 永不修改（D3）。原生输入插件只加在 `native/android`，不把 Android 代码带进 runtime。

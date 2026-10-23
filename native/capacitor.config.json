@@ -1,0 +1,11 @@
+{
+  "appId": "app.hearthbox",
+  "appName": "炉边",
+  "webDir": "../apps/shell/dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

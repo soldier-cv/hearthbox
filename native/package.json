@@ -1,0 +1,20 @@
+{
+  "name": "@hearthbox/native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "炉边的 Android TV 壳：Capacitor 8 + 系统 WebView",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "add:android": "cap add android",
+    "sync:android": "cap sync android",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3"
+  }
+}

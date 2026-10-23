@@ -1,7 +1,7 @@
 name: Release
 
-# 平台发布产物：壳的静态站点（Windows/浏览器用）+ 演示游戏包。
-# Android TV 的 APK 还没有：native/android 属于 M4，工程不存在时这里不构建它。
+# 平台发布产物：静态壳、Windows 安装包/绿色版、Android TV APK、演示游戏包。
+# 任何一个目标构建失败都不发 Release（publish 依赖前三个 job）。
 on:
   push:
     tags:
@@ -9,8 +9,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '发布标签，留空则用当前 ref'
-        required: false
+        description: '发布标签（如 v0.1.0），必须与壳的版本号一致'
+        required: true
         default: ''
 
 concurrency:
@@ -20,8 +20,11 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
 jobs:
-  release:
+  web:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -29,6 +32,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: 校验发布标签
+        run: |
+          set -euo pipefail
+          case "$RELEASE_TAG" in
+            v*) ;;
+            *)
+              echo "发布标签必须以 v 开头，收到：$RELEASE_TAG" >&2
+              exit 1
+              ;;
+          esac
+          version=$(node -p "require('./native/windows/package.json').version")
+          if [ "v$version" != "$RELEASE_TAG" ]; then
+            echo "发布标签 ${RELEASE_TAG} 与壳版本 v${version} 不一致；先升 native/windows/package.json、tauri.conf.json、native/package.json 和 Android 的 versionName" >&2
+            exit 1
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -38,22 +57,6 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-
-      - name: 确定发布标签
-        run: |
-          set -euo pipefail
-          tag="${{ inputs.tag }}"
-          if [ -z "$tag" ]; then
-            tag="$GITHUB_REF_NAME"
-          fi
-          case "$tag" in
-            v*) ;;
-            *)
-              echo "发布标签必须以 v 开头，收到：$tag" >&2
-              exit 1
-              ;;
-          esac
-          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
 
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
@@ -80,21 +83,171 @@ jobs:
       - name: 端到端测试
         run: pnpm exec playwright test --reporter=line
 
-      - name: 打包产物
+      - name: 打包 Web 产物
         run: |
           set -euo pipefail
-          mkdir -p release
-          pnpm pack:game demo "release/hearthbox-demo-${RELEASE_TAG}.hbx"
-          (cd apps/shell/dist && zip -qr "$GITHUB_WORKSPACE/release/hearthbox-shell-${RELEASE_TAG}.zip" .)
-          (cd release && sha256sum ./* > SHA256SUMS.txt)
-          ls -lh release
+          mkdir -p release-web
+          pnpm pack:game demo "release-web/hearthbox-demo-${RELEASE_TAG}.hbx"
+          (cd apps/shell/dist && zip -qr "$GITHUB_WORKSPACE/release-web/hearthbox-shell-${RELEASE_TAG}.zip" .)
+          (cd release-web && sha256sum ./* > SHA256SUMS.txt)
+          ls -lh release-web
 
-      - name: 上传构建产物
+      - name: 上传 Web 产物
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ env.RELEASE_TAG }}
-          path: release/
+          name: release-web
+          path: release-web/
           retention-days: 30
+
+  windows:
+    needs: web
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建演示游戏与壳
+        run: |
+          pnpm demo
+          pnpm build
+
+      - name: 安装 Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 缓存 Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/windows/src-tauri -> target
+
+      - name: 构建 Windows 安装包
+        run: pnpm --dir native/windows exec tauri build
+
+      - name: 整理产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-windows | Out-Null
+          Copy-Item "native/windows/src-tauri/target/release/bundle/nsis/*-setup.exe" "release-windows/hearthbox-windows-$env:RELEASE_TAG-setup.exe"
+          Copy-Item "native/windows/src-tauri/target/release/hearthbox.exe" "release-windows/hearthbox-windows-$env:RELEASE_TAG-portable.exe"
+          Get-ChildItem release-windows | Select-Object Name, Length
+
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: release-windows/
+          retention-days: 30
+
+  android:
+    needs: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建演示游戏与壳
+        run: |
+          pnpm demo
+          pnpm build
+
+      - name: 同步 Android 工程
+        run: pnpm --dir native exec cap sync android
+
+      - name: 构建 APK
+        working-directory: native/android
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/release-android"
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+            ./gradlew assembleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk \
+              "$GITHUB_WORKSPACE/release-android/hearthbox-android-${RELEASE_TAG}.apk"
+          else
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk \
+              "$GITHUB_WORKSPACE/release-android/hearthbox-android-${RELEASE_TAG}-debug.apk"
+          fi
+
+      - name: 生成校验和
+        run: |
+          set -euo pipefail
+          cd release-android
+          sha256sum ./* > SHA256SUMS.txt
+          ls -lh
+
+      - name: 上传 Android 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: release-android/
+          retention-days: 30
+
+  publish:
+    needs: [web, windows, android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 汇总产物
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release
+          merge-multiple: true
+
+      - name: 重新生成校验和
+        run: |
+          set -euo pipefail
+          cd release
+          rm -f SHA256SUMS.txt
+          sha256sum ./* > SHA256SUMS.txt
+          ls -lh
 
       - name: 发布 Release
         env:

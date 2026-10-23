@@ -14,7 +14,8 @@ hearthbox/
     sdk/                  # 只有类型与 defineGame()，发布到 npm
     catalog/              # M2 才创建：schema、校验、签名
   native/
-    android/              # M4 才创建：Capacitor 工程与原生输入插件
+    windows/              # Tauri 2 壳：NSIS 安装包与绿色版 exe
+    android/              # Capacitor 8 壳：Leanback、全屏、常亮；原生输入插件待接
   demo/                   # 演示游戏：把平台每项能力都用一遍
     src/main.ts
     game.json
@@ -24,7 +25,7 @@ hearthbox/
   docs/
 ```
 
-标注"M2 / M4 才创建"的目录，在对应里程碑之前不要建。空目录没有约束力，反而让人误以为那里已经有约定。
+标注「M2 才创建」的目录，在对应里程碑之前不要建。空目录没有约束力，反而让人误以为那里已经有约定。
 
 ## 2. 依赖方向
 
@@ -35,7 +36,8 @@ apps/shell ──► packages/runtime ──► packages/sdk
 
 tools/hbx ──► packages/catalog ──► packages/sdk
 demo ──► packages/sdk
-native/android ──► 通过 HostBridge 与 apps/shell 交互，不直接依赖 runtime 内部
+native/windows ──► 只打包 apps/shell/dist，通过 HostBridge 与平台交互
+native/android ──► 只打包 apps/shell/dist，通过 HostBridge 与平台交互
 ```
 
 规则：

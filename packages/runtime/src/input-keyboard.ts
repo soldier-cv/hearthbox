@@ -90,7 +90,7 @@ export function createKeyboardSource(config: KeyboardSourceConfig = {}): InputSo
   function onKeyDown(event: Event): void {
     const keyboard = event as KeyboardEvent;
     if (keyboard.repeat) return;
-    const code = keyboard.code;
+    const code = eventCode(keyboard);
     if (code.startsWith('Arrow')) {
       if (!isTextEntry(event.target)) keyboard.preventDefault?.();
     } else if (code === 'Space' || code === 'Enter' || code === 'Tab') {
@@ -106,7 +106,7 @@ export function createKeyboardSource(config: KeyboardSourceConfig = {}): InputSo
   }
 
   function onKeyUp(event: Event): void {
-    heldCodes.delete((event as KeyboardEvent).code);
+    heldCodes.delete(eventCode(event as KeyboardEvent));
   }
 
   function onBlur(): void {
@@ -173,4 +173,34 @@ function axisFromMask(mask: number, negative: 'left' | 'up', positive: 'right' |
   const neg = bitOf(negative);
   const pos = bitOf(positive);
   return ((mask & (1 << pos)) !== 0 ? 1 : 0) - ((mask & (1 << neg)) !== 0 ? 1 : 0);
+}
+
+/**
+ * Android WebView 的遥控器按键只有 `key`，`code` 是空串。
+ * 统一成 `code` 形状，键盘状态和手柄预映射才不用区分平台。
+ */
+function eventCode(event: KeyboardEvent): string {
+  if (event.code) return event.code;
+  const key = event.key;
+  if (key.startsWith('Arrow')) return key;
+  switch (key) {
+    case 'Enter':
+    case 'Escape':
+    case 'Tab':
+    case 'Backspace':
+      return key;
+    case ' ':
+      return 'Space';
+    case 'Shift':
+      return 'ShiftLeft';
+    case 'Control':
+      return 'ControlLeft';
+    case 'Alt':
+      return 'AltLeft';
+    default:
+      break;
+  }
+  if (/^[a-zA-Z]$/.test(key)) return `Key${key.toUpperCase()}`;
+  if (/^[0-9]$/.test(key)) return `Digit${key}`;
+  return key;
 }

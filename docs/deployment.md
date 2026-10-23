@@ -4,9 +4,9 @@
 
 | | 开发 | 正式 |
 |---|---|---|
-| 平台本体 | Vite dev server（PC 上） | Android：打进 APK；Windows：PWA，静态托管 |
+| 平台本体 | Vite dev server（PC 上） | Android：打进 APK；Windows：Tauri 安装包 / 绿色版 exe |
 | 货架 catalog | 本地 `tools/hbx serve` 或正式源 | 公网 HTTPS 静态托管 |
-| 电视如何访问 | Capacitor `server.url` 指向 PC，热更新 | 安装 APK |
+| 电视如何访问 | 构建 APK 后 `adb install -r`，改完重装（数据保留） | 安装 APK |
 | 网络 | 局域网 / ZeroTier | 公网；ZeroTier 仅作可选镜像 |
 
 原则：**正式环境不依赖任何一台家里的机器开着**。ZeroTier 是开发工具，不是运行依赖。
@@ -15,7 +15,7 @@
 
 | 主机名 | 用途 |
 |---|---|
-| `play.example.com` | Windows PWA 与货架前端 |
+| `play.example.com` | Windows / 浏览器用的静态壳 |
 | `games.example.com` | catalog.json、签名、`.hbx` 包文件 |
 
 两个域名都是 HTTPS。包文件域名对所有来源开放 CORS（`Access-Control-Allow-Origin: *`，无 Cookie），因为文件是公开的。
@@ -69,54 +69,54 @@ games.example.com {
 1. 电视：设置 → 关于 → 连续点击版本号开启开发者选项 → 打开网络调试。
 2. 开发机：`adb connect <电视IP>:5555`。
 
-日常：
+改完代码后重新构建并覆盖安装（origin 不变，存档和已装游戏都会保留）：
 
 ```
-pnpm --filter @hearthbox/shell dev --host      # Vite 监听 0.0.0.0:5173
-adb shell am start -n app.hearthbox/.MainActivity
+pnpm demo
+pnpm build
+pnpm --dir native exec cap sync android
+cd native/android
+./gradlew installDebug          # Windows: .\gradlew.bat installDebug
 ```
 
-- 调试构建中，壳读取开发配置里的 `server.url`（`http://<开发机>:5173`），WebView 直接加载 dev server，保存即热更新。
-- 该地址是 HTTP 且非 localhost，**不是安全上下文**：Gamepad API、Web Crypto 不可用。这不影响开发，因为 Android 的手柄走原生桥，签名校验用 `@noble/*`。
-- 调试用桌面 Chrome 打开 `chrome://inspect` 连接电视 WebView。
-- `server.url` 只存在于本地调试配置，不进版本库。
-
-发版构建：
-
-```
-pnpm --filter @hearthbox/shell build
-pnpm --filter @hearthbox/android sync
-# 产出 debug / 签名 release APK
-adb install -r hearthbox-release.apk
-```
-
-APK 侧载更新会保留应用数据（origin 不变，见 decisions.md D3）。
+- Android 工程在 `native/android`（Capacitor 8，minSdk 24 / targetSdk 36）。Web 资源由 `cap sync` 从 `apps/shell/dist` 复制进去。
+- 调试用桌面 Chrome 打开 `chrome://inspect`，能看到电视 WebView。
+- 电视遥控器的方向键/确认键在 WebView 里是普通 DOM 键盘事件，平台现有的键盘层会映射成手柄输入。
+- 蓝牙手柄的原生输入桥还没接：Android WebView 没有 Gamepad API，走摇杆要等原生插件。
+- 正式包允许明文 HTTP（`usesCleartextTraffic` + `allowMixedContent`），用于从局域网 NAS 导入 `.hbx`；不接 HTTP 源时可以收紧。
+- 签名：CI 在没有 keystore secret 时产出 debug APK（可直接侧载）；有 `ANDROID_KEYSTORE_BASE64` 等 secret 时构建签名的 release APK。签名私钥不入库。
 
 ## 7. Windows
 
-- 开发：浏览器打开 `http://localhost:5173`。
-- 正式：访问 `https://play.example.com`，浏览器菜单"安装应用"得到 PWA，离线可用（壳本身由 Service Worker 缓存）。
-- 全屏：PWA 以 `display: fullscreen` 安装，或在应用内请求全屏。
+- 开发：`pnpm demo && pnpm build`，然后 `pnpm --dir native/windows exec tauri dev`，或直接运行 `native/windows/src-tauri/target/release/hearthbox.exe`。
+- 正式：NSIS 安装包（当前用户安装，不需要管理员）或绿色版单文件 `hearthbox.exe`。壳与资源都嵌在 exe 里，绿色版不依赖安装目录，只依赖系统的 WebView2 运行时。
+- WebView2：Windows 11 自带；Windows 10 需要 Edge WebView2 Runtime，安装包会带 bootstrapper 自动补装（需要联网）。
+- origin 固定为 `https://tauri.localhost`（`useHttpsScheme: true`），见 decisions.md D3；不要改成 `http`，否则存档和已装游戏全丢。
+- 安装包没有 Authenticode 签名，SmartScreen 会提示"未知发布者"；要消除提示需要购买代码签名证书，不在当前范围。
+- 自动更新没有接：更新方式是把新安装包/新 exe 覆盖上去，IndexedDB 数据保留。
 
 ## 8. CI（GitHub Actions）
 
-**现在实际在跑的**（`.github/workflows/ci.yml`，PR / push 到 `main` / 手动）：
+**校验流水线**（`.github/workflows/ci.yml`，PR / push 到 `main` / 手动）：
 
-1. `pnpm install --frozen-lockfile`
-2. lint + typecheck + unit test
-3. `pnpm demo` 把演示游戏放进壳，再 `pnpm build`
-4. Playwright 端到端（用伪造输入源，不需要真手柄）
-5. 上传产物：`apps/shell/dist`（静态壳）与演示 `.hbx`
+1. `verify`（ubuntu）：install → lint → typecheck → unit test → `pnpm demo` + `pnpm build` → Playwright 端到端；上传静态壳与演示 `.hbx`
+2. `windows`（windows-latest）：构建 Tauri 安装包与绿色版 exe；上传 `hearthbox-windows`
+3. `android`（ubuntu-latest）：Capacitor sync + Gradle，产出 APK；上传 `hearthbox-android`
+
+`windows` / `android` 依赖 `verify`，校验不过就不浪费原生构建时间。
 
 打 `v*` tag 时（`.github/workflows/release.yml`）：
 
-- 重跑上面的检查，构建壳的 zip 与演示 `.hbx`，附到 GitHub Release，并生成 SHA256SUMS
+- 先跑完整校验与端到端，再并行构建 Web / Windows / Android
+- Release 资产：`hearthbox-shell-<tag>.zip`、`hearthbox-demo-<tag>.hbx`、`hearthbox-windows-<tag>-setup.exe`、`hearthbox-windows-<tag>-portable.exe`、`hearthbox-android-<tag>[-debug].apk`、`SHA256SUMS.txt`
+- 任何目标失败都不会发布（`publish` 依赖三个构建 job）
 
-**还没做的**（等对应里程碑）：
+**还没做的**：
 
-- `assembleDebug` / 签名 release APK：`native/android` 是 M4 的产物，目前工程不存在，CI 无法构建 APK
-- Windows `.exe`：Tauri 壳不在 v1 计划里，v1 的 Windows 形态是可安装 PWA（M5 补 Service Worker 与 manifest）
-- `hbx publish` 发布 catalog（签名密钥来自仓库 secret）：M2
+- `hbx publish` 发布签名 catalog（M2）
+- Android 蓝牙手柄的原生输入桥（M4 剩余项）
+- Windows 代码签名与自动更新
+- 可安装 PWA（manifest + Service Worker；Windows 已改用安装包，PWA 只作为轻量入口保留）
 
 ## 9. 明确不做的事
 
