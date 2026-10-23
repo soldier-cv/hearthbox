@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "node scripts/dev-server.mjs",
     "build": "pnpm -r --filter=!@hearthbox/hbx build",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm --filter @hearthbox/sdk build && pnpm --filter @hearthbox/runtime build && pnpm -r typecheck",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "format": "prettier --write .",
